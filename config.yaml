@@ -3,40 +3,40 @@
 # Edit the values below to customize your diary setup.
 
 # Personal Information
-author: "Qiang Liu"
-institution: ""
+author: "Yangyang Li"
+institution: "Northwestern Univesity"
 diary_title: "Research Diary"
-current_year: "auto"  # Use 'auto' for current year
+current_year: "auto" # Use 'auto' for current year
 
 # Directory Settings
-output_directory: "collections"  # Legacy setting. All compilations now go to 'collections' folder by default
-template_directory: "latex/templates"  # Directory containing LaTeX templates (relative to diary root)
+output_directory: "collections" # Legacy setting. All compilations now go to 'collections' folder by default
+template_directory: "latex/templates" # Directory containing LaTeX templates (relative to diary root)
 
 # LaTeX Files (relative paths from diary root)
-style_files_directory: "latex/styles"  # Directory containing .sty files
-bibliography_file: "latex/bibliography/reference.bib"  # Path to your bibliography file
-entry_template: "latex/templates/entries/entry_template.tex"  # Template for individual diary entries
-collection_template: "latex/templates/collection/collection_template.tex"  # Template for compiled collections
+style_files_directory: "latex/styles" # Directory containing .sty files
+bibliography_file: "latex/bibliography/reference.bib" # Path to your bibliography file
+entry_template: "latex/templates/entries/entry_template.tex" # Template for individual diary entries
+collection_template: "latex/templates/collection/collection_template.tex" # Template for compiled collections
 
 # Editor Settings
-default_editor: "open"  # Command to open files (macOS: 'open', Linux: 'xdg-open', or specific editor like 'code', 'vim')
+default_editor: "nvim" # Command to open files (macOS: 'open', Linux: 'xdg-open', or specific editor like 'code', 'vim')
 
 # Advanced Settings
-latex_engine: "pdflatex"  # LaTeX compiler to use
-latex_options: "-interaction=nonstopmode -file-line-error"  # Command line options for LaTeX compilation
-cleanup_extensions: ".aux .log .out .toc .lof .lot .bbl .blg .fls .fdb_latexmk .synctex.gz .nav .snm .vrb .tmp .tmp~"  # File extensions to clean up after LaTeX compilation
+latex_engine: "lualatex" # LaTeX compiler to use
+latex_options: "-interaction=nonstopmode -file-line-error --shell-escape" # Command line options for LaTeX compilation
+cleanup_extensions: ".aux .log .out .toc .lof .lot .bbl .blg .fls .fdb_latexmk .synctex.gz .nav .snm .vrb .tmp .tmp~" # File extensions to clean up after LaTeX compilation
 
 # Discussion Forum Settings
-enable_discussion_forum: true  # Enable/disable discussion forum on blog posts
-forum_type: "giscus"  # Options: "giscus", "disqus", "utterances", "none"
-giscus_repo: ""  # GitHub repository in format "username/repo-name" (e.g., "lqiang67/diary")
-giscus_repo_id: ""  # GitHub repository ID (get from Giscus setup)
-giscus_category: "General"  # GitHub Discussions category name
-giscus_category_id: ""  # GitHub Discussions category ID (get from Giscus setup)
-giscus_mapping: "pathname"  # Discussion mapping: "pathname", "url", "title", "og:title"
-giscus_strict: "0"  # Strict mode: "0" or "1"
-giscus_reactions_enabled: "1"  # Enable reactions: "0" or "1"
-giscus_emit_metadata: "0"  # Emit discussion metadata: "0" or "1"
-giscus_input_position: "bottom"  # Input position: "top" or "bottom"
-giscus_theme: "light"  # Theme: "light", "dark", "dark_dimmed", "transparent_dark", "preferred_color_scheme"
-giscus_lang: "en"  # Language: "en", "zh-CN", "es", "fr", etc.
+enable_discussion_forum: true # Enable/disable discussion forum on blog posts
+forum_type: "giscus" # Options: "giscus", "disqus", "utterances", "none"
+giscus_repo: "" # GitHub repository in format "username/repo-name" (e.g., "lqiang67/diary")
+giscus_repo_id: "" # GitHub repository ID (get from Giscus setup)
+giscus_category: "General" # GitHub Discussions category name
+giscus_category_id: "" # GitHub Discussions category ID (get from Giscus setup)
+giscus_mapping: "pathname" # Discussion mapping: "pathname", "url", "title", "og:title"
+giscus_strict: "0" # Strict mode: "0" or "1"
+giscus_reactions_enabled: "1" # Enable reactions: "0" or "1"
+giscus_emit_metadata: "0" # Emit discussion metadata: "0" or "1"
+giscus_input_position: "bottom" # Input position: "top" or "bottom"
+giscus_theme: "light" # Theme: "light", "dark", "dark_dimmed", "transparent_dark", "preferred_color_scheme"
+giscus_lang: "en" # Language: "en", "zh-CN", "es", "fr", etc.

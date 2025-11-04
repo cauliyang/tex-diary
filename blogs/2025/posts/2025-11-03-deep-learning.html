@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="generator" content="pandoc" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+    <title>2025 11 03 Deep Learning</title>
+    <link rel="stylesheet" href="post.css" />
+    
+    <!-- MathJax Configuration -->
+    <script>
+    window.MathJax = {
+        tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']],
+            displayMath: [['$$', '$$'], ['\\[', '\\]']],
+            processEscapes: true,
+            processEnvironments: true,
+            macros: {
+                "coloneq": "\\mathrel{\\mathop:}=",
+                "RR": "\\mathbb{R}",
+                "CC": "\\mathbb{C}",
+                "NN": "\\mathbb{N}",
+                "PP": "\\mathbb{P}",
+                "E": "\\mathbb{E}",
+                "D": "\\mathbb{D}",
+                "P": "\\mathcal{P}",
+                "H": "\\mathcal{H}",
+                "X": "\\mathcal{X}",
+                "B": "\\mathcal{B}",
+                "F": "\\mathcal{F}",
+                "M": "\\mathbb{M}",
+                "var": "\\mathrm{var}",
+                "Var": "\\mathrm{Var}",
+                "cov": "\\mathrm{cov}",
+                "Cov": "\\mathrm{Cov}",
+                "corr": "\\mathrm{corr}",
+                "Corr": "\\mathrm{Corr}",
+                "pr": "\\mathrm{Pr}",
+                "prob": "\\mathrm{Pr}",
+                "normal": "\\mathcal{N}",
+                "MSE": "\\mathrm{MSE}",
+                "KL": "\\mathrm{KL}",
+                "V": "\\mathbf",
+                "vx": "\\boldsymbol{x}",
+                "trace": "\\mathrm{trace}",
+                "diag": "\\mathrm{diag}",
+                "tt": "^\\top",
+                "df": "\\mathrm{d}",
+                "d": "\\mathrm{d}",
+                "dt": "\\mathrm{d}t",
+                "dW": "\\mathrm{d}W",
+                "dno": "\\mathrm{d}",
+                "dd": "\\nabla",
+                "tdd": "\\tilde{\\nabla}",
+                "ddt": "\\frac{\\mathrm{d}}{\\mathrm{d} t}",
+                "div": "\\nabla\\cdot",
+                "ind": "\\mathbb{I}",
+                "sign": "\\mathrm{sign}",
+                "cd": "\\mid",
+                "la": "\\langle",
+                "ra": "\\rangle",
+                "sumstein": "\\mathcal{T}",
+                "stein": "\\mathcal{A}",
+                "score": "\\boldsymbol{s}",
+                "ff": "\\boldsymbol{\\phi}",
+                "eng": "E",
+                "hattheta": "\\hat{\\theta}",
+                "cc": "\\theta",
+                "kernel": "\\mathbf{k}",
+                "datai": "^{(i)}",
+                "workingDate": "\\textsc{<YEAR> $|$ <MONTH_NAME> $|$ <DAY>}",
+                "userName": "<AUTHOR>",
+                "institution": "<INSTITUTION>",
+                "diaryTitle": "<DIARY_TITLE>",
+                "myb": ["\\mbox{\\boldmath$#1$}", 1],
+                "eqnref": ["Eqn.~\\eqref{#1}", 1],
+                "figref": ["Fig.~\\ref{#1}", 1],
+                "here": ["\\url{#1}", 1],
+                "Qiang": ["\\textcolor{red}{#1}\\\\", 1],
+                "qiang": ["\\textcolor{red}{#1}", 1],
+                "Todo": ["\\textcolor{red}{TODO: #1}\\\\", 1],
+                "todo": ["\\textcolor{gray}{TODO: #1}", 1],
+                "remark": ["\\paragraph{Remark}#1", 1],
+                "red": ["\\textcolor{red}{#1}", 1],
+                "med": ["\\textcolor{magenta}{#1}", 1],
+                "blue": ["\\textcolor{blue}{#1}", 1],
+                "gray": ["\\textcolor{gray}{#1}", 1],
+                "green": ["\\textcolor{green}{#1}", 1],
+                "myempty": ["", 1],
+                "e": ["\\mathbb{E}\\left[#1\\right]", 1],
+                "vv": ["\\boldsymbol{#1}", 1],
+                "norm": ["\\left\\lVert#1\\right\\rVert", 1],
+                "abs": ["\\left\\lvert#1\\right\\rvert", 1],
+                "neib": ["\\partial{#1}", 1],
+                "set": ["\\mathcal{#1}", 1],
+                "funcset": ["\\mathcal{#1}", 1],
+                "opt": ["\\mathcal{#1}", 1],
+                "greedy": ["\\mathrm{Greedy}\\{#1\\}", 1],
+                "clickhere": ["\\href{run:#1}{Click here}", 1],
+                "showlabels": ["", 1],
+                "myf": ["\\frac{\\displaystyle #1}{\\displaystyle #2}", 2],
+                "myp": ["\\frac{\\displaystyle \\partial #1}{\\displaystyle \\partial  #2}", 2],
+                "f": ["\\frac{#1}{#2}", 2],
+                "definecolorbox": ["%
+  \\expandafter\\declaretheoremstyle\\expandafter[%
+    headfont=\\bfseries\\sffamily\\color{#1!70!black}, 
+    bodyfont=\\normalfont,
+    mdframed={%
+      linewidth=2pt,
+      rightline=false, 
+      topline=false, 
+      bottomline=false,
+      linecolor=#1, 
+      backgroundcolor=#1!5,
+    }
+  ]{#2}%
+", 2]
+            }
+        },
+        options: {
+            ignoreHtmlClass: "tex2jax_ignore",
+            processHtmlClass: "tex2jax_process"
+        }
+    };
+    </script>
+    <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+</head>
+<body>
+    <p><a href="run:2025-11-03-deep-learning.tex">November 3</a></p>
+<h1 id="section"></h1>
+   
+</body>
+</html>

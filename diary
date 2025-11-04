@@ -1,57 +1,92 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "click",
+#     "colorama",
+#     "jinja2",
+#     "pathlib2",
+#     "pyyaml",
+#     "rich",
+#     "watchdog",
+# ]
+# ///
 """Research Diary System - Simple All-in-One Script"""
-import argparse, sys, logging, os, re, subprocess, shutil
+
+import argparse
+import sys
+import logging
+import os
+import re
+import subprocess
+import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+
 
 def setup_logging(verbose=False):
-    logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO, format='%(levelname)s: %(message)s')
+    logging.basicConfig(
+        level=logging.DEBUG if verbose else logging.INFO,
+        format="%(levelname)s: %(message)s",
+    )
+
 
 def get_base_dir():
     return Path(__file__).parent.resolve()
 
+
 def load_config():
     base_dir = get_base_dir()
     config_file = base_dir / "config.yaml"
-    defaults = {'author': 'Research Student', 'institution': 'University', 'diary_title': 'Research Diary', 'year': datetime.now().year, 'output_dir': 'collections', 'template_dir': 'assets/templates', 'default_editor': 'open'}
-    if not config_file.exists(): return defaults
+    defaults = {
+        "author": "Research Student",
+        "institution": "University",
+        "diary_title": "Research Diary",
+        "year": datetime.now().year,
+        "output_dir": "collections",
+        "template_dir": "assets/templates",
+        "default_editor": "nvim",
+    }
+    if not config_file.exists():
+        return defaults
     config = defaults.copy()
     try:
         import yaml
-        with open(config_file, 'r') as f:
+
+        with open(config_file, "r") as f:
             yaml_config = yaml.safe_load(f)
             if yaml_config:
                 # Map YAML keys to expected config keys
                 key_mapping = {
-                    'author': 'author',
-                    'institution': 'institution', 
-                    'diary_title': 'diary_title',
-                    'current_year': 'year',
-                    'output_directory': 'output_dir',
-                    'template_directory': 'template_dir',
-                    'default_editor': 'default_editor'
+                    "author": "author",
+                    "institution": "institution",
+                    "diary_title": "diary_title",
+                    "current_year": "year",
+                    "output_directory": "output_dir",
+                    "template_directory": "template_dir",
+                    "default_editor": "default_editor",
                 }
                 for yaml_key, config_key in key_mapping.items():
                     if yaml_key in yaml_config:
                         value = yaml_config[yaml_key]
-                        if config_key == 'year' and str(value).lower() == 'auto':
+                        if config_key == "year" and str(value).lower() == "auto":
                             config[config_key] = datetime.now().year
                         else:
                             config[config_key] = value
     except ImportError:
         print("Warning: PyYAML not installed. Install with: pip install PyYAML")
         return defaults
-    except Exception as e: 
+    except Exception as e:
         print(f"Warning: Failed to parse config.yaml: {e}")
         return defaults
     return config
+
 
 def setup_assets_directory(base_dir, year):
     """Set up assets directory structure with single symlink"""
     assets_dir = base_dir / "assets"
     posts_year_dir = base_dir / "posts" / str(year)
-    
+
     # Create assets directories
     assets_dir.mkdir(exist_ok=True)
     (assets_dir / "figures").mkdir(exist_ok=True)
@@ -60,7 +95,7 @@ def setup_assets_directory(base_dir, year):
     (assets_dir / "styles").mkdir(exist_ok=True)
     (assets_dir / "templates").mkdir(exist_ok=True)
     (assets_dir / "bibliography").mkdir(exist_ok=True)
-    
+
     # Create single assets symlink in posts/year directory
     assets_symlink = posts_year_dir / "assets"
     if not assets_symlink.exists():
@@ -72,131 +107,215 @@ def setup_assets_directory(base_dir, year):
     else:
         print(f"INFO: Assets symlink already exists for year {year}")
 
+
 def create_today_entry(optional_name=None):
     base_dir, config, today = get_base_dir(), load_config(), datetime.now()
-    posts_dir, year_dir = base_dir / "posts", base_dir / "posts" / str(today.year)
+    _posts_dir, year_dir = base_dir / "posts", base_dir / "posts" / str(today.year)
     year_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Set up assets directory and symlink
     setup_assets_directory(base_dir, today.year)
-    
+
     base_name = f"{today.year}-{today.month:02d}-{today.day:02d}"
     if optional_name:
-        clean_name = re.sub(r'[^a-zA-Z0-9_-]', '', optional_name.strip())
-        if clean_name: base_name += f"-{clean_name}"
+        clean_name = re.sub(r"[^a-zA-Z0-9_-]", "", optional_name.strip())
+        if clean_name:
+            base_name += f"-{clean_name}"
     entry_file = year_dir / f"{base_name}.tex"
     if not entry_file.exists():
         template_file = base_dir / "assets/templates/entries/entry_template.tex"
         if template_file.exists():
-            with open(template_file, 'r') as f: template_content = f.read()
-            month_names = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+            with open(template_file, "r") as f:
+                template_content = f.read()
+            month_names = [
+                "January",
+                "February",
+                "March",
+                "April",
+                "May",
+                "June",
+                "July",
+                "August",
+                "September",
+                "October",
+                "November",
+                "December",
+            ]
             default_tags = [str(today.year)]
             if optional_name:
-                clean_name = re.sub(r'[^a-zA-Z0-9_-]', '', optional_name.strip())
-                #if clean_name: default_tags.append(clean_name.lower())
-            replacements = {'<YEAR>': str(today.year), '<MONTH>': f"{today.month:02d}", '<DAY>': f"{today.day:02d}", '<DAY_NUMBER>': str(today.day), '<MONTH_NAME>': month_names[today.month - 1], '<AUTHOR>': config['author'], '<INSTITUTION>': config['institution'], '<DIARY_TITLE>': config.get('diary_title', 'Research Diary'), '<FILENAME>': entry_file.name, '<TAGS>': ", ".join(default_tags)}
+                clean_name = re.sub(r"[^a-zA-Z0-9_-]", "", optional_name.strip())
+                # if clean_name: default_tags.append(clean_name.lower())
+            replacements = {
+                "<YEAR>": str(today.year),
+                "<MONTH>": f"{today.month:02d}",
+                "<DAY>": f"{today.day:02d}",
+                "<DAY_NUMBER>": str(today.day),
+                "<MONTH_NAME>": month_names[today.month - 1],
+                "<AUTHOR>": config["author"],
+                "<INSTITUTION>": config["institution"],
+                "<DIARY_TITLE>": config.get("diary_title", "Research Diary"),
+                "<FILENAME>": entry_file.name,
+                "<TAGS>": ", ".join(default_tags),
+            }
             content = template_content
-            for placeholder, value in replacements.items(): content = content.replace(placeholder, value)
-            with open(entry_file, 'w') as f: f.write(content)
+            for placeholder, value in replacements.items():
+                content = content.replace(placeholder, value)
+            with open(entry_file, "w") as f:
+                f.write(content)
         else:
-            with open(entry_file, 'w') as f: f.write(f"""%<TAGs>: {today.year}\n\\documentclass[11pt,letterpaper]{{article}}\n\\begin{{document}}\n\\section{{Diary Entry - {today.strftime('%B %d, %Y')}}}\n% Add your research content here\n\\end{{document}}\n""")
+            with open(entry_file, "w") as f:
+                f.write(
+                    f"""%<TAGs>: {today.year}\n\\documentclass[11pt,letterpaper]{{article}}\n\\begin{{document}}\n\\section{{Diary Entry - {today.strftime("%B %d, %Y")}}}\n% Add your research content here\n\\end{{document}}\n"""
+                )
         print(f"INFO: Created diary entry: {entry_file}")
-    else: print(f"INFO: Diary entry already exists: {entry_file}")
-    
+    else:
+        print(f"INFO: Diary entry already exists: {entry_file}")
+
     # Open the LaTeX file for editing
     import subprocess
+
     try:
-        subprocess.run(['open', str(entry_file)], check=True)
+        subprocess.run([config["default_editor"], str(entry_file)], check=True)
         print(f"INFO: Opened {entry_file} for editing")
     except subprocess.CalledProcessError:
         print(f"WARNING: Could not open {entry_file} automatically")
     except FileNotFoundError:
         print(f"WARNING: 'open' command not found - please open {entry_file} manually")
-    
+
     return entry_file
 
+
 def extract_tags_from_file(file_path):
-    if not file_path.exists(): return []
+    if not file_path.exists():
+        return []
     try:
-        with open(file_path, 'r') as f:
+        with open(file_path, "r") as f:
             for line in f:
-                match = re.search(r'%\s*<TAGs>\s*:\s*(.+)', line, re.IGNORECASE)
+                match = re.search(r"%\s*<TAGs>\s*:\s*(.+)", line, re.IGNORECASE)
                 if match:
                     tags_str = match.group(1).strip()
-                    if tags_str: return [re.sub(r'\s+', ' ', tag) for tag in [tag.strip().lower() for tag in tags_str.split(',')] if tag.strip()]
-    except: pass
+                    if tags_str:
+                        return [
+                            re.sub(r"\s+", " ", tag)
+                            for tag in [
+                                tag.strip().lower() for tag in tags_str.split(",")
+                            ]
+                            if tag.strip()
+                        ]
+    except:
+        pass
     return []
+
 
 def find_files_by_tags(tags):
     posts_dir = get_base_dir() / "posts"
-    if not posts_dir.exists(): return []
+    if not posts_dir.exists():
+        return []
     search_tags = [tag.lower().strip() for tag in tags]
     matching_files = []
     for tex_file in posts_dir.rglob("*.tex"):
-        if any(file_tag in search_tags for file_tag in extract_tags_from_file(tex_file)): matching_files.append(tex_file)
+        if any(
+            file_tag in search_tags for file_tag in extract_tags_from_file(tex_file)
+        ):
+            matching_files.append(tex_file)
     return sorted(matching_files, key=lambda f: f.stat().st_birthtime)
 
+
 def compile_latex(tex_file):
-    if not shutil.which('pdflatex'): raise RuntimeError("pdflatex not found")
-    tex_dir, tex_name, pdf_file = tex_file.parent, tex_file.name, tex_file.parent / (tex_file.stem + '.pdf')
+    if not shutil.which("pdflatex"):
+        raise RuntimeError("pdflatex not found")
+    tex_dir, tex_name, pdf_file = (
+        tex_file.parent,
+        tex_file.name,
+        tex_file.parent / (tex_file.stem + ".pdf"),
+    )
     original_dir = os.getcwd()
     os.chdir(tex_dir)
     try:
-        subprocess.run(['pdflatex', '-interaction=nonstopmode', tex_name], capture_output=True)
+        subprocess.run(
+            ["pdflatex", "-interaction=nonstopmode", tex_name], capture_output=True
+        )
         tex_content = open(tex_file).read()
-        if '\\bibliography{' in tex_content or '\\cite{' in tex_content:
-            if shutil.which('bibtex'):
+        if "\\bibliography{" in tex_content or "\\cite{" in tex_content:
+            if shutil.which("bibtex"):
                 print("INFO: Running bibtex")
-                subprocess.run(['bibtex', tex_file.stem], capture_output=True)
-                for _ in range(2): subprocess.run(['pdflatex', '-interaction=nonstopmode', tex_name], capture_output=True)
-        subprocess.run(['pdflatex', '-interaction=nonstopmode', tex_name], capture_output=True)
-        for ext in ['.aux', '.log', '.out', '.toc', '.bbl', '.blg', '.synctex.gz']:
+                subprocess.run(["bibtex", tex_file.stem], capture_output=True)
+                for _ in range(2):
+                    subprocess.run(
+                        ["pdflatex", "-interaction=nonstopmode", tex_name],
+                        capture_output=True,
+                    )
+        subprocess.run(
+            ["pdflatex", "-interaction=nonstopmode", tex_name], capture_output=True
+        )
+        for ext in [".aux", ".log", ".out", ".toc", ".bbl", ".blg", ".synctex.gz"]:
             temp_file = tex_file.with_suffix(ext)
-            if temp_file.exists(): temp_file.unlink()
-    finally: os.chdir(original_dir)
-    if not pdf_file.exists(): raise RuntimeError("PDF file was not generated")
+            if temp_file.exists():
+                temp_file.unlink()
+    finally:
+        os.chdir(original_dir)
+    if not pdf_file.exists():
+        raise RuntimeError("PDF file was not generated")
     return pdf_file
 
+
 def compile_to_html(tex_file):
-    if not shutil.which('pandoc'): raise RuntimeError("pandoc not found - install with: brew install pandoc (macOS) or apt install pandoc (Linux)")
-    tex_dir, tex_name, html_file = tex_file.parent, tex_file.name, tex_file.parent / (tex_file.stem + '.html')
+    if not shutil.which("pandoc"):
+        raise RuntimeError(
+            "pandoc not found - install with: brew install pandoc (macOS) or apt install pandoc (Linux)"
+        )
+    tex_dir, tex_name, html_file = (
+        tex_file.parent,
+        tex_file.name,
+        tex_file.parent / (tex_file.stem + ".html"),
+    )
     original_dir = os.getcwd()
     os.chdir(tex_dir)
     try:
         print("INFO: Converting LaTeX to HTML with pandoc")
-        
+
         # Check if bibliography file exists through assets symlink
         bib_file = tex_dir / "assets/bibliography/reference.bib"
-        
+
         # Build pandoc command with academic styling and bibliography support
-        cmd = ['pandoc', tex_name, '-o', html_file.name, 
-               '--standalone', '--mathjax',
-               '--citeproc',  # Enable citation processing
-               '--css', 'https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css']
-        
+        cmd = [
+            "pandoc",
+            tex_name,
+            "-o",
+            html_file.name,
+            "--standalone",
+            "--mathjax",
+            "--citeproc",  # Enable citation processing
+            "--css",
+            "https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css",
+        ]
+
         # Add bibliography if it exists
         if bib_file.exists():
-            cmd.extend(['--bibliography', 'assets/bibliography/reference.bib'])
+            cmd.extend(["--bibliography", "assets/bibliography/reference.bib"])
             print("INFO: Including bibliography file")
-        
+
         # Add custom CSS for academic formatting
         css_content = create_academic_css()
         css_file = tex_dir / "academic.css"
-        with open(css_file, 'w') as f:
+        with open(css_file, "w") as f:
             f.write(css_content)
-        cmd.extend(['--css', 'academic.css'])
-        
+        cmd.extend(["--css", "academic.css"])
+
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
             print(f"Warning: pandoc conversion had issues: {result.stderr}")
-        
+
         # Clean up temporary CSS file
         if css_file.exists():
             css_file.unlink()
-            
-    finally: os.chdir(original_dir)
-    if not html_file.exists(): raise RuntimeError("HTML file was not generated")
+
+    finally:
+        os.chdir(original_dir)
+    if not html_file.exists():
+        raise RuntimeError("HTML file was not generated")
     return html_file
+
 
 def create_academic_css():
     return """
@@ -347,9 +466,10 @@ blockquote {
 }
 """
 
+
 def setup_output_directory(output_dir):
     base_dir = get_base_dir()
-    
+
     # Create single assets symlink instead of individual file symlinks
     assets_symlink = output_dir / "assets"
     if not assets_symlink.exists():
@@ -358,48 +478,68 @@ def setup_output_directory(output_dir):
             print("INFO: Created assets symlink in output directory")
         except Exception as e:
             print(f"Warning: Could not create assets symlink: {e}")
-    
+
     # Bibliography is now accessible through assets symlink at assets/bibliography/reference.bib
     posts_source, posts_target = base_dir / "posts", output_dir / "posts"
     if posts_source.exists():
         try:
-            if posts_target.exists() or posts_target.is_symlink(): posts_target.unlink()
+            if posts_target.exists() or posts_target.is_symlink():
+                posts_target.unlink()
             posts_target.symlink_to(posts_source)
-        except: pass
+        except:
+            pass
+
 
 def generate_collection_content(entry_files):
     collection_content = ""
     bibliography_files = set()  # Track unique bibliography files
-    
+
     for entry_file in entry_files:
         try:
-            with open(entry_file, 'r') as f: content = f.read()
-            doc_start, doc_end = content.find('\\begin{document}'), content.find('\\end{document}')
+            with open(entry_file, "r") as f:
+                content = f.read()
+            doc_start, doc_end = (
+                content.find("\\begin{document}"),
+                content.find("\\end{document}"),
+            )
             if doc_start != -1 and doc_end != -1:
-                doc_content = content[doc_start + len('\\begin{document}'):doc_end].strip()
-                
+                doc_content = content[
+                    doc_start + len("\\begin{document}") : doc_end
+                ].strip()
+
                 # Extract bibliography files from this entry
                 import re
-                bib_matches = re.findall(r'\\bibliography\{([^}]+)\}', doc_content)
+
+                bib_matches = re.findall(r"\\bibliography\{([^}]+)\}", doc_content)
                 for bib_match in bib_matches:
                     bibliography_files.add(bib_match.strip())
-                
+
                 # Remove bibliography sections from individual entries
                 # Remove \bibliographystyle{...} lines
-                doc_content = re.sub(r'\\bibliographystyle\{[^}]*\}\s*', '', doc_content)
+                doc_content = re.sub(
+                    r"\\bibliographystyle\{[^}]*\}\s*", "", doc_content
+                )
                 # Remove \bibliography{...} lines (including comment markers)
-                doc_content = re.sub(r'\\bibliography\{[^}]*\}[^\n]*\n?', '', doc_content)
-                
-                collection_content += f"\n% Entry from {entry_file.name}\n{doc_content}\n\\clearpage\n\n"
-        except: pass
-    
+                doc_content = re.sub(
+                    r"\\bibliography\{[^}]*\}[^\n]*\n?", "", doc_content
+                )
+
+                collection_content += (
+                    f"\n% Entry from {entry_file.name}\n{doc_content}\n\\clearpage\n\n"
+                )
+        except:
+            pass
+
     return collection_content, bibliography_files
 
-def cmd_today(args): print(f"Diary entry: {create_today_entry(args.name)}")
+
+def cmd_today(args):
+    print(f"Diary entry: {create_today_entry(args.name)}")
+
 
 def cmd_status(args):
     base_dir, config = get_base_dir(), load_config()
-    posts_dir, year_dir = base_dir / "posts", base_dir / "posts" / str(config['year'])
+    posts_dir, year_dir = base_dir / "posts", base_dir / "posts" / str(config["year"])
     entry_count, entry_files = 0, []
     if year_dir.exists():
         tex_files = list(year_dir.glob("*.tex"))
@@ -407,170 +547,261 @@ def cmd_status(args):
     all_tags = {}
     if posts_dir.exists():
         for tex_file in posts_dir.rglob("*.tex"):
-            for tag in extract_tags_from_file(tex_file): all_tags[tag] = all_tags.get(tag, 0) + 1
-    print(f"Diary System Status\n===================\nBase directory: {base_dir}\nYear: {config['year']}\nAuthor: {config['author']}\nInstitution: {config['institution']}\nOutput directory: {base_dir / config['output_dir']}\nTemplate directory: {base_dir / config['template_dir']}\nDiary entries for {config['year']}: {entry_count}")
+            for tag in extract_tags_from_file(tex_file):
+                all_tags[tag] = all_tags.get(tag, 0) + 1
+    print(
+        f"Diary System Status\n===================\nBase directory: {base_dir}\nYear: {config['year']}\nAuthor: {config['author']}\nInstitution: {config['institution']}\nOutput directory: {base_dir / config['output_dir']}\nTemplate directory: {base_dir / config['template_dir']}\nDiary entries for {config['year']}: {entry_count}"
+    )
     if entry_files:
-        for entry_file in entry_files[:5]: print(f"  {entry_file}")
-        if len(entry_files) > 5: print(f"  ... and {len(entry_files) - 5} more")
+        for entry_file in entry_files[:5]:
+            print(f"  {entry_file}")
+        if len(entry_files) > 5:
+            print(f"  ... and {len(entry_files) - 5} more")
     if all_tags:
         print(f"\nAvailable tags ({len(all_tags)}):")
-        for tag, count in sorted(all_tags.items(), key=lambda x: (-x[1], x[0]))[:10]: print(f"  {tag}: {count} entries")
-        if len(all_tags) > 10: print(f"  ... and {len(all_tags) - 10} more")
+        for tag, count in sorted(all_tags.items(), key=lambda x: (-x[1], x[0]))[:10]:
+            print(f"  {tag}: {count} entries")
+        if len(all_tags) > 10:
+            print(f"  ... and {len(all_tags) - 10} more")
+
 
 def cmd_compile(args):
     base_dir, config = get_base_dir(), load_config()
     try:
-        output_format = getattr(args, 'format', 'pdf')
-        year = getattr(args, 'year', config['year'])
-        output_dir = Path(args.output) if hasattr(args, 'output') and args.output else base_dir / "collections" / f"year-{year}"
+        output_format = getattr(args, "format", "pdf")
+        year = getattr(args, "year", config["year"])
+        output_dir = (
+            Path(args.output)
+            if hasattr(args, "output") and args.output
+            else base_dir / "collections" / f"year-{year}"
+        )
         output_dir.mkdir(parents=True, exist_ok=True)
         year_dir = base_dir / "posts" / str(year)
-        if not year_dir.exists(): raise FileNotFoundError(f"No diary entries found for year {year}")
-        entry_files = sorted(year_dir.glob(f"{year}-*.tex"), key=lambda f: f.stat().st_birthtime)
-        if not entry_files: raise FileNotFoundError(f"No diary entries found in {year_dir}")
+        if not year_dir.exists():
+            raise FileNotFoundError(f"No diary entries found for year {year}")
+        entry_files = sorted(
+            year_dir.glob(f"{year}-*.tex"), key=lambda f: f.stat().st_birthtime
+        )
+        if not entry_files:
+            raise FileNotFoundError(f"No diary entries found in {year_dir}")
         print(f"INFO: Found {len(entry_files)} diary entries")
         setup_output_directory(output_dir)
-        collection_content, bibliography_files = generate_collection_content(entry_files)
-        
+        collection_content, bibliography_files = generate_collection_content(
+            entry_files
+        )
+
         # Generate bibliography section if any bibliography files were found
         bibliography_section = ""
         if bibliography_files:
-            print(f"INFO: Found bibliography files: {', '.join(sorted(bibliography_files))}")
+            print(
+                f"INFO: Found bibliography files: {', '.join(sorted(bibliography_files))}"
+            )
             bibliography_section = "\n\\bibliographystyle{apalike}\n"
             # Combine all bibliography files in a single \bibliography command
             bib_files_list = ",".join(sorted(bibliography_files))
             bibliography_section += f"\\bibliography{{{bib_files_list}}}\n"
-        
-        template_file, collection_tex = base_dir / "assets/templates/collection/collection_template.tex", output_dir / f"{year}-Research-Diary.tex"
+
+        template_file, collection_tex = (
+            base_dir / "assets/templates/collection/collection_template.tex",
+            output_dir / f"{year}-Research-Diary.tex",
+        )
         if template_file.exists():
-            with open(template_file, 'r') as f: template_content = f.read()
+            with open(template_file, "r") as f:
+                template_content = f.read()
             content = template_content
             # Add bibliography section to the diary entries content
             full_content = collection_content + bibliography_section
-            for placeholder, value in {'<YEAR>': str(year), '<AUTHOR>': config['author'], '<INSTITUTION>': config['institution'], '<DIARY_TITLE>': config.get('diary_title', 'Research Diary'), '<DIARYENTRIES>': full_content}.items(): content = content.replace(placeholder, value)
-            with open(collection_tex, 'w') as f: f.write(content)
+            for placeholder, value in {
+                "<YEAR>": str(year),
+                "<AUTHOR>": config["author"],
+                "<INSTITUTION>": config["institution"],
+                "<DIARY_TITLE>": config.get("diary_title", "Research Diary"),
+                "<DIARYENTRIES>": full_content,
+            }.items():
+                content = content.replace(placeholder, value)
+            with open(collection_tex, "w") as f:
+                f.write(content)
         else:
-            with open(collection_tex, 'w') as f: f.write(f"""\\documentclass[11pt,letterpaper]{{article}}\n\\title{{{config.get('diary_title', 'Research Diary')} Collection - {year}}}\n\\author{{{config['author']}}}\n\\begin{{document}}\n\\maketitle\n\\tableofcontents\n\\clearpage\n{collection_content}\n\\end{{document}}""")
+            with open(collection_tex, "w") as f:
+                f.write(
+                    f"""\\documentclass[11pt,letterpaper]{{article}}\n\\title{{{config.get("diary_title", "Research Diary")} Collection - {year}}}\n\\author{{{config["author"]}}}\n\\begin{{document}}\n\\maketitle\n\\tableofcontents\n\\clearpage\n{collection_content}\n\\end{{document}}"""
+                )
         print(f"INFO: Compiling {collection_tex} to {output_format.upper()}")
-        if output_format == 'html':
+        if output_format == "html":
             result_file = compile_to_html(collection_tex)
         else:
             result_file = compile_latex(collection_tex)
         print(f"Successfully compiled diary: {result_file}")
-        
+
         # Open the generated file
         import subprocess
+
         try:
-            subprocess.run(['open', str(result_file)], check=True)
+            subprocess.run(["open", str(result_file)], check=True)
             print(f"INFO: Opened {result_file}")
         except subprocess.CalledProcessError:
             print(f"WARNING: Could not open {result_file} automatically")
         except FileNotFoundError:
-            print(f"WARNING: 'open' command not found - please open {result_file} manually")
-            
-    except Exception as e: print(f"Error compiling diary: {e}"); sys.exit(1)
+            print(
+                f"WARNING: 'open' command not found - please open {result_file} manually"
+            )
+
+    except Exception as e:
+        print(f"Error compiling diary: {e}")
+        sys.exit(1)
+
 
 def cmd_tags(args):
     base_dir, config = get_base_dir(), load_config()
     try:
         matching_files = find_files_by_tags(args.tags)
-        if not matching_files: raise FileNotFoundError(f"No diary entries found with tags: {args.tags}")
+        if not matching_files:
+            raise FileNotFoundError(f"No diary entries found with tags: {args.tags}")
         print(f"INFO: Found {len(matching_files)} entries matching tags: {args.tags}")
-        output_format = getattr(args, 'format', 'pdf')
-        if hasattr(args, 'output') and args.output: output_dir = Path(args.output)
+        output_format = getattr(args, "format", "pdf")
+        if hasattr(args, "output") and args.output:
+            output_dir = Path(args.output)
         else:
-            normalized_tags = [re.sub(r'\s+', ' ', tag.strip().lower()) for tag in args.tags]
-            compilation_name = "+".join([tag.replace(' ', '-') for tag in sorted(set(normalized_tags))])
+            normalized_tags = [
+                re.sub(r"\s+", " ", tag.strip().lower()) for tag in args.tags
+            ]
+            compilation_name = "+".join(
+                [tag.replace(" ", "-") for tag in sorted(set(normalized_tags))]
+            )
             output_dir = base_dir / "collections" / compilation_name
         output_dir.mkdir(parents=True, exist_ok=True)
         setup_output_directory(output_dir)
-        collection_content, bibliography_files = generate_collection_content(matching_files)
-        
+        collection_content, bibliography_files = generate_collection_content(
+            matching_files
+        )
+
         # Generate bibliography section if any bibliography files were found
         bibliography_section = ""
         if bibliography_files:
-            print(f"INFO: Found bibliography files: {', '.join(sorted(bibliography_files))}")
+            print(
+                f"INFO: Found bibliography files: {', '.join(sorted(bibliography_files))}"
+            )
             bibliography_section = "\n\\bibliographystyle{apalike}\n"
             # Combine all bibliography files in a single \bibliography command
             bib_files_list = ",".join(sorted(bibliography_files))
             bibliography_section += f"\\bibliography{{{bib_files_list}}}\n"
-        
+
         template_file = base_dir / "assets/templates/collection/collection_template.tex"
-        compilation_name = "+".join([tag.replace(' ', '-') for tag in sorted(set([re.sub(r'\s+', ' ', tag.strip().lower()) for tag in args.tags]))])
+        compilation_name = "+".join(
+            [
+                tag.replace(" ", "-")
+                for tag in sorted(
+                    set([re.sub(r"\s+", " ", tag.strip().lower()) for tag in args.tags])
+                )
+            ]
+        )
         collection_tex = output_dir / f"{compilation_name}.tex"
         if template_file.exists():
-            with open(template_file, 'r') as f: template_content = f.read()
+            with open(template_file, "r") as f:
+                template_content = f.read()
             content = template_content
             # Add bibliography section to the diary entries content
             full_content = collection_content + bibliography_section
-            for placeholder, value in {'<YEAR>': str(config['year']), '<AUTHOR>': config['author'], '<INSTITUTION>': config['institution'], '<DIARY_TITLE>': config.get('diary_title', 'Research Diary'), '<DIARYENTRIES>': full_content}.items(): content = content.replace(placeholder, value)
-            with open(collection_tex, 'w') as f: f.write(content)
+            for placeholder, value in {
+                "<YEAR>": str(config["year"]),
+                "<AUTHOR>": config["author"],
+                "<INSTITUTION>": config["institution"],
+                "<DIARY_TITLE>": config.get("diary_title", "Research Diary"),
+                "<DIARYENTRIES>": full_content,
+            }.items():
+                content = content.replace(placeholder, value)
+            with open(collection_tex, "w") as f:
+                f.write(content)
         else:
-            with open(collection_tex, 'w') as f: f.write(f"""\\documentclass[11pt,letterpaper]{{article}}\n\\title{{{config.get('diary_title', 'Research Diary')} Collection - {' + '.join(args.tags)}}}\n\\author{{{config['author']}}}\n\\begin{{document}}\n\\maketitle\n\\tableofcontents\n\\clearpage\n{collection_content}\n\\end{{document}}""")
+            with open(collection_tex, "w") as f:
+                f.write(
+                    f"""\\documentclass[11pt,letterpaper]{{article}}\n\\title{{{config.get("diary_title", "Research Diary")} Collection - {" + ".join(args.tags)}}}\n\\author{{{config["author"]}}}\n\\begin{{document}}\n\\maketitle\n\\tableofcontents\n\\clearpage\n{collection_content}\n\\end{{document}}"""
+                )
         print(f"INFO: Compiling {collection_tex} to {output_format.upper()}")
-        if output_format == 'html':
+        if output_format == "html":
             result_file = compile_to_html(collection_tex)
         else:
             result_file = compile_latex(collection_tex)
         print(f"Successfully compiled entries with tags {args.tags}: {result_file}")
-        
+
         # Open the generated file
         import subprocess
+
         try:
-            subprocess.run(['open', str(result_file)], check=True)
+            subprocess.run(["open", str(result_file)], check=True)
             print(f"INFO: Opened {result_file}")
         except subprocess.CalledProcessError:
             print(f"WARNING: Could not open {result_file} automatically")
         except FileNotFoundError:
-            print(f"WARNING: 'open' command not found - please open {result_file} manually")
-            
-    except Exception as e: print(f"Error compiling by tags: {e}"); sys.exit(1)
+            print(
+                f"WARNING: 'open' command not found - please open {result_file} manually"
+            )
+
+    except Exception as e:
+        print(f"Error compiling by tags: {e}")
+        sys.exit(1)
+
 
 def preprocess_latex_for_pandoc_simple(tex_file, output_dir):
     """Preprocess LaTeX file to handle custom \def commands before pandoc"""
     try:
-        with open(tex_file, 'r', encoding='utf-8') as f:
+        with open(tex_file, "r", encoding="utf-8") as f:
             content = f.read()
-        
+
         # Replace \bb...\ee with proper align* environments
         import re
-        
+
         replacements_made = 0
-        
+
         # Handle \bb content \ee -> \begin{align*} content \end{align*}
-        bb_pattern = r'\\bb\s*(.*?)\\ee'
+        bb_pattern = r"\\bb\s*(.*?)\\ee"
         bb_matches = len(re.findall(bb_pattern, content, re.DOTALL))
         if bb_matches > 0:
-            content = re.sub(bb_pattern, r'\\begin{align*}\g<1>\\end{align*}', content, flags=re.DOTALL)
+            content = re.sub(
+                bb_pattern,
+                r"\\begin{align*}\g<1>\\end{align*}",
+                content,
+                flags=re.DOTALL,
+            )
             replacements_made += bb_matches
             print(f"    🔧 Preprocessed \\bb...\\ee commands ({bb_matches} times)")
-        
+
         # Handle \bba content \eea -> \begin{align} content \end{align}
-        bba_pattern = r'\\bba\s*(.*?)\\eea'
+        bba_pattern = r"\\bba\s*(.*?)\\eea"
         bba_matches = len(re.findall(bba_pattern, content, re.DOTALL))
         if bba_matches > 0:
-            content = re.sub(bba_pattern, r'\\begin{align}\g<1>\\end{align}', content, flags=re.DOTALL)
+            content = re.sub(
+                bba_pattern,
+                r"\\begin{align}\g<1>\\end{align}",
+                content,
+                flags=re.DOTALL,
+            )
             replacements_made += bba_matches
             print(f"    🔧 Preprocessed \\bba...\\eea commands ({bba_matches} times)")
-        
+
         # Handle \bbb content \eee -> \begin{align} content \end{align}
-        bbb_pattern = r'\\bbb\s*(.*?)\\eee'
+        bbb_pattern = r"\\bbb\s*(.*?)\\eee"
         bbb_matches = len(re.findall(bbb_pattern, content, re.DOTALL))
         if bbb_matches > 0:
-            content = re.sub(bbb_pattern, r'\\begin{align}\g<1>\\end{align}', content, flags=re.DOTALL)
+            content = re.sub(
+                bbb_pattern,
+                r"\\begin{align}\g<1>\\end{align}",
+                content,
+                flags=re.DOTALL,
+            )
             replacements_made += bbb_matches
             print(f"    🔧 Preprocessed \\bbb...\\eee commands ({bbb_matches} times)")
-        
+
         # Create the preprocessed file in output directory
         temp_file = output_dir / tex_file.name
-        with open(temp_file, 'w', encoding='utf-8') as f:
+        with open(temp_file, "w", encoding="utf-8") as f:
             f.write(content)
-        
+
         if replacements_made > 0:
             print(f"    📊 Total LaTeX preprocessing: {replacements_made} replacements")
-        
+
         return temp_file
-        
+
     except Exception as e:
         print(f"    ⚠️  Could not preprocess LaTeX: {e}")
         # Fall back to simple copy
@@ -578,167 +809,189 @@ def preprocess_latex_for_pandoc_simple(tex_file, output_dir):
         shutil.copy(tex_file, temp_file)
         return temp_file
 
+
 def compile_single_entry_to_html(tex_file, output_dir):
     """Compile a single diary entry to HTML using template system"""
-    if not shutil.which('pandoc'): raise RuntimeError("pandoc not found")
-    
+    if not shutil.which("pandoc"):
+        raise RuntimeError("pandoc not found")
+
     # Set up paths
     html_file = output_dir / f"{tex_file.stem}.html"
     temp_html_file = output_dir / f"{tex_file.stem}_temp.html"
     original_dir = os.getcwd()
-    
+
     try:
         os.chdir(output_dir)
-        
+
         # Preprocess the tex file to handle \def commands
         temp_tex = preprocess_latex_for_pandoc_simple(tex_file, output_dir)
-        
+
         # Build pandoc command to generate body content only
-        cmd = ['pandoc', tex_file.name, '-o', temp_html_file.name,
-               '--mathjax']  # Remove --standalone to get body content only
-        
+        cmd = [
+            "pandoc",
+            tex_file.name,
+            "-o",
+            temp_html_file.name,
+            "--mathjax",
+        ]  # Remove --standalone to get body content only
+
         # Check for bibliography
         bib_file = output_dir / "assets/bib/reference.bib"
         has_citations = False
         try:
-            with open(temp_tex, 'r') as f:
+            with open(temp_tex, "r") as f:
                 content = f.read()
-                has_citations = '\\cite{' in content or '\\bibliography{' in content
+                has_citations = "\\cite{" in content or "\\bibliography{" in content
         except:
             pass
-        
+
         # Only add citeproc if we have citations and bibliography
         if has_citations and bib_file.exists():
-            cmd.extend(['--citeproc', '--bibliography', 'assets/bib/reference.bib'])
+            cmd.extend(["--citeproc", "--bibliography", "assets/bib/reference.bib"])
             # Also check for reference2.bib
             bib_file2 = output_dir / "assets/bib/reference2.bib"
             if bib_file2.exists():
-                cmd.extend(['--bibliography', 'assets/bib/reference2.bib'])
-        
+                cmd.extend(["--bibliography", "assets/bib/reference2.bib"])
+
         # Run pandoc to get body content
         result = subprocess.run(cmd, capture_output=True, text=True)
-        
+
         # Clean up temporary tex file
         temp_tex.unlink()
-        
+
         if result.returncode != 0:
             print(f"Warning: Failed to convert {tex_file.name}: {result.stderr}")
             # Try without citeproc if it failed
-            if '--citeproc' in cmd:
-                print(f"  Retrying without bibliography...")
-                cmd = ['pandoc', tex_file.name, '-o', temp_html_file.name, '--mathjax']
-                
+            if "--citeproc" in cmd:
+                print("  Retrying without bibliography...")
+                cmd = ["pandoc", tex_file.name, "-o", temp_html_file.name, "--mathjax"]
+
                 # Copy tex file again and retry
                 shutil.copy(tex_file, temp_tex)
                 result = subprocess.run(cmd, capture_output=True, text=True)
                 temp_tex.unlink()
-                
+
                 if result.returncode != 0:
                     print(f"  Still failed: {result.stderr}")
                     return None
             else:
                 return None
-        
+
         # Now wrap the content with our template
         if temp_html_file.exists():
-            with open(temp_html_file, 'r', encoding='utf-8') as f:
+            with open(temp_html_file, "r", encoding="utf-8") as f:
                 body_content = f.read()
-            
+
             # Clean up temp file
             temp_html_file.unlink()
-            
+
             # Use template system to create final HTML
-            final_html = create_entry_html_with_template(tex_file, body_content, html_file)
+            final_html = create_entry_html_with_template(
+                tex_file, body_content, html_file
+            )
             return final_html
         else:
             return None
-            
+
     finally:
         os.chdir(original_dir)
-    
+
     return html_file if html_file.exists() else None
+
 
 def create_entry_html_with_template(tex_file, body_content, output_file):
     """Create final HTML using entry template system"""
     # Load the HTML template
-    template_content = load_html_template('entry_template')
+    template_content = load_html_template("entry_template")
     if not template_content:
         print("    ⚠️  Entry template not found, using pandoc default")
         # Fallback: write body content directly
-        with open(output_file, 'w', encoding='utf-8') as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             f.write(body_content)
         return output_file
-    
+
     # Extract title from tex file
-    title = tex_file.stem.replace('-', ' ').title()
+    title = tex_file.stem.replace("-", " ").title()
     try:
-        with open(tex_file, 'r', encoding='utf-8') as f:
+        with open(tex_file, "r", encoding="utf-8") as f:
             tex_content = f.read()
             # Try to find title in LaTeX content
             import re
-            title_match = re.search(r'\\title\{([^}]+)\}', tex_content)
+
+            title_match = re.search(r"\\title\{([^}]+)\}", tex_content)
             if title_match:
                 title = title_match.group(1)
     except:
         pass
-    
+
     # Generate MathJax macros from our LaTeX commands
     mathjax_macros = generate_mathjax_macros()
-    
+
     # Prepare template context
     context = {
-        'TITLE': title,
-        'CONTENT': body_content,
-        'MATHJAX_MACROS': mathjax_macros
+        "TITLE": title,
+        "CONTENT": body_content,
+        "MATHJAX_MACROS": mathjax_macros,
     }
-    
+
     # Render the template
     html_content = render_template(template_content, context)
-    
+
     # Write the final HTML
-    with open(output_file, 'w', encoding='utf-8') as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         f.write(html_content)
-    
+
     return output_file
+
 
 def generate_mathjax_macros():
     """Generate MathJax macro definitions from LaTeX commands"""
     try:
         base_dir = get_base_dir()
         latex_commands = parse_latex_commands_from_files(base_dir)
-        
+
         macros = []
-        
+
         # Convert simple commands
-        for cmd_name, definition in latex_commands['simple'].items():
+        for cmd_name, definition in latex_commands["simple"].items():
             # Clean definition for JavaScript
-            clean_def = definition.replace('\\', '\\\\').replace('"', '\\"')
+            clean_def = definition.replace("\\", "\\\\").replace('"', '\\"')
             macros.append(f'"{cmd_name}": "{clean_def}"')
-        
+
         # Convert one-arg commands
-        for cmd_name, definition in latex_commands['one_arg'].items():
+        for cmd_name, definition in latex_commands["one_arg"].items():
             # Convert #1 to #1 for MathJax
-            mathjax_def = definition.replace('\\g<1>', '#1').replace('\\', '\\\\').replace('"', '\\"')
+            mathjax_def = (
+                definition.replace("\\g<1>", "#1")
+                .replace("\\", "\\\\")
+                .replace('"', '\\"')
+            )
             macros.append(f'"{cmd_name}": ["{mathjax_def}", 1]')
-        
+
         # Convert two-arg commands
-        for cmd_name, definition in latex_commands['two_arg'].items():
-            mathjax_def = definition.replace('\\g<1>', '#1').replace('\\g<2>', '#2').replace('\\', '\\\\').replace('"', '\\"')
+        for cmd_name, definition in latex_commands["two_arg"].items():
+            mathjax_def = (
+                definition.replace("\\g<1>", "#1")
+                .replace("\\g<2>", "#2")
+                .replace("\\", "\\\\")
+                .replace('"', '\\"')
+            )
             macros.append(f'"{cmd_name}": ["{mathjax_def}", 2]')
-        
-        return ',\n                '.join(macros)
-        
+
+        return ",\n                ".join(macros)
+
     except Exception as e:
         print(f"    ⚠️  Could not generate MathJax macros: {e}")
         return '"dd": "\\\\nabla", "ind": "\\\\mathbb{I}", "RR": "\\\\mathbb{R}", "CC": "\\\\mathbb{C}"'
+
 
 def load_css_template(template_name):
     """Load CSS template from assets/html_templates directory"""
     base_dir = get_base_dir()
     template_path = base_dir / "assets" / "html_templates" / f"{template_name}.css"
-    
+
     try:
-        with open(template_path, 'r', encoding='utf-8') as f:
+        with open(template_path, "r", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
         print(f"    ⚠️  CSS template '{template_name}' not found, using fallback")
@@ -747,13 +1000,14 @@ def load_css_template(template_name):
         print(f"    ⚠️  Error loading CSS template: {e}")
         return create_fallback_css(template_name)
 
+
 def load_html_template(template_name):
     """Load HTML template from assets/html_templates directory"""
     base_dir = get_base_dir()
     template_path = base_dir / "assets" / "html_templates" / f"{template_name}.html"
-    
+
     try:
-        with open(template_path, 'r', encoding='utf-8') as f:
+        with open(template_path, "r", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
         print(f"    ⚠️  HTML template '{template_name}' not found")
@@ -762,76 +1016,86 @@ def load_html_template(template_name):
         print(f"    ⚠️  Error loading HTML template: {e}")
         return None
 
+
 def render_template(template_content, context):
     """Simple template renderer supporting {{variable}} and {{#section}}{{/section}} syntax"""
     if not template_content:
         return ""
-    
+
     result = template_content
-    
+
     import re
-    
+
     # Handle loops FIRST (before conditionals remove the markers)
     # Handle loops {{#POSTS}}...{{/POSTS}}
-    posts_pattern = r'\{\{#POSTS\}\}(.*?)\{\{/POSTS\}\}'
+    posts_pattern = r"\{\{#POSTS\}\}(.*?)\{\{/POSTS\}\}"
     posts_template = re.search(posts_pattern, result, re.DOTALL)
-    if posts_template and 'POSTS' in context:
+    if posts_template and "POSTS" in context:
         posts_content = ""
         post_template = posts_template.group(1)
-        for post in context.get('POSTS', []):
+        for post in context.get("POSTS", []):
             post_html = post_template
             # Replace post-specific variables
             for post_key, post_value in post.items():
                 post_placeholder = f"{{{{{post_key}}}}}"
-                post_html = post_html.replace(post_placeholder, str(post_value) if post_value is not None else "")
-            
+                post_html = post_html.replace(
+                    post_placeholder, str(post_value) if post_value is not None else ""
+                )
+
             # Handle post tags
-            if '{{#TAGS}}' in post_html and 'TAGS' in post:
-                tags_pattern = r'\{\{#TAGS\}\}(.*?)\{\{/TAGS\}\}'
+            if "{{#TAGS}}" in post_html and "TAGS" in post:
+                tags_pattern = r"\{\{#TAGS\}\}(.*?)\{\{/TAGS\}\}"
                 tags_template = re.search(tags_pattern, post_html, re.DOTALL)
                 if tags_template:
                     tags_content = ""
                     tag_template = tags_template.group(1)
-                    for tag in post.get('TAGS', []):
-                        tag_html = tag_template.replace('{{.}}', str(tag))
+                    for tag in post.get("TAGS", []):
+                        tag_html = tag_template.replace("{{.}}", str(tag))
                         tags_content += tag_html
-                    post_html = re.sub(tags_pattern, tags_content, post_html, flags=re.DOTALL)
-            
+                    post_html = re.sub(
+                        tags_pattern, tags_content, post_html, flags=re.DOTALL
+                    )
+
             posts_content += post_html
-        
+
         result = re.sub(posts_pattern, posts_content, result, flags=re.DOTALL)
-    
+
     # Handle positive conditionals {{#CONDITION}}
     for key, value in context.items():
-        if key.startswith('#') and key != '#POSTS':  # Skip POSTS as it's already handled
+        if (
+            key.startswith("#") and key != "#POSTS"
+        ):  # Skip POSTS as it's already handled
             condition_key = key[1:]  # Remove the # prefix
             pattern = f"{{{{#{condition_key}}}}}(.*?){{{{/{condition_key}}}}}"
             if value:  # If condition is truthy, keep the content
-                result = re.sub(pattern, r'\1', result, flags=re.DOTALL)
+                result = re.sub(pattern, r"\1", result, flags=re.DOTALL)
             else:  # If condition is falsy, remove the content
-                result = re.sub(pattern, '', result, flags=re.DOTALL)
-    
+                result = re.sub(pattern, "", result, flags=re.DOTALL)
+
     # Handle negative conditionals {{^CONDITION}}
     for key, value in context.items():
-        if key.startswith('^'):
+        if key.startswith("^"):
             condition_key = key[1:]  # Remove the ^ prefix
             pattern = f"{{{{\\^{condition_key}}}}}(.*?){{{{/{condition_key}}}}}"
             if value:  # If condition is truthy, keep the content
-                result = re.sub(pattern, r'\1', result, flags=re.DOTALL)
+                result = re.sub(pattern, r"\1", result, flags=re.DOTALL)
             else:  # If condition is falsy, remove the content
-                result = re.sub(pattern, '', result, flags=re.DOTALL)
-    
+                result = re.sub(pattern, "", result, flags=re.DOTALL)
+
     # Replace simple variables {{VARIABLE}} (do this last)
     for key, value in context.items():
-        if not key.startswith('#') and not key.startswith('^'):
+        if not key.startswith("#") and not key.startswith("^"):
             placeholder = f"{{{{{key}}}}}"
-            result = result.replace(placeholder, str(value) if value is not None else "")
-    
+            result = result.replace(
+                placeholder, str(value) if value is not None else ""
+            )
+
     return result
+
 
 def create_fallback_css(template_name):
     """Create basic fallback CSS if template file is missing"""
-    if 'index' in template_name:
+    if "index" in template_name:
         return """
 body { font-family: Georgia, serif; max-width: 1000px; margin: 0 auto; padding: 2rem; }
 h1 { color: #2c3e50; text-align: center; }
@@ -848,20 +1112,23 @@ a { color: #3498db; text-decoration: none; }
 img { max-width: 100%; height: auto; }
 """
 
+
 def create_blog_post_css_enhanced():
     """Load enhanced blog post CSS from template file"""
-    return load_css_template('blog_post')
+    return load_css_template("blog_post")
+
 
 def create_blog_post_css():
     """Load simple blog post CSS from template file"""
-    return load_css_template('blog_post_simple')
+    return load_css_template("blog_post_simple")
+
 
 def create_blog_index_css(compact=False):
     """Load blog index CSS from template file"""
     if compact:
-        return load_css_template('blog_index_compact')
+        return load_css_template("blog_index_compact")
     else:
-        return load_css_template('blog_index')
+        return load_css_template("blog_index")
 
 
 # CSS has been moved to template files - removing orphaned CSS below
@@ -985,170 +1252,194 @@ code {
 
 # End of orphaned CSS - all CSS moved to template files
 
+
 def extract_title_and_excerpt(tex_file):
     """Extract title and excerpt from LaTeX file"""
     try:
-        with open(tex_file, 'r', encoding='utf-8') as f:
+        with open(tex_file, "r", encoding="utf-8") as f:
             content = f.read()
-        
+
         # Extract title from \section{} or similar
         import re
-        title_match = re.search(r'\\section\{([^}]+)\}', content)
+
+        title_match = re.search(r"\\section\{([^}]+)\}", content)
         if title_match:
             title = title_match.group(1)
         else:
             # Fallback to filename
-            title = tex_file.stem.replace('-', ' ').title()
-        
+            title = tex_file.stem.replace("-", " ").title()
+
         # Extract first paragraph as excerpt
         # Look for text after \begin{document} or after title
-        content_start = content.find('\\begin{document}')
+        content_start = content.find("\\begin{document}")
         if content_start != -1:
             content_part = content[content_start:]
             # Find first substantial text paragraph
-            lines = content_part.split('\n')
+            lines = content_part.split("\n")
             excerpt_lines = []
             for line in lines:
                 clean_line = line.strip()
-                if clean_line and not clean_line.startswith('\\') and not clean_line.startswith('%'):
+                if (
+                    clean_line
+                    and not clean_line.startswith("\\")
+                    and not clean_line.startswith("%")
+                ):
                     excerpt_lines.append(clean_line)
-                    if len(' '.join(excerpt_lines)) > 100:
+                    if len(" ".join(excerpt_lines)) > 100:
                         break
-            
-            excerpt = ' '.join(excerpt_lines)[:200] + ('...' if len(' '.join(excerpt_lines)) > 200 else '')
+
+            excerpt = " ".join(excerpt_lines)[:200] + (
+                "..." if len(" ".join(excerpt_lines)) > 200 else ""
+            )
         else:
             excerpt = f"Research diary entry from {tex_file.stem}"
-        
+
         return title, excerpt
-        
+
     except Exception as e:
         print(f"    ⚠️  Could not extract title/excerpt: {e}")
-        return tex_file.stem.replace('-', ' ').title(), "Research diary entry"
+        return tex_file.stem.replace("-", " ").title(), "Research diary entry"
+
 
 # Removed duplicate function with embedded CSS - using template-based version below
+
 
 def compile_single_entry_to_html_with_mathjax(tex_file, output_dir):
     """This function has been moved - see below"""
     pass
+
 
 def extract_title_and_excerpt(tex_file):
     """Extract title and excerpt from LaTeX file - duplicate function"""
     # This is a duplicate - the real function is below
     pass
 
+
 def create_blog_index(blog_dir, posts_info, tags, config):
     """Create blog index - duplicate function"""
-    # This is a duplicate - the real function is below  
+    # This is a duplicate - the real function is below
     pass
+
 
 # All CSS has been moved to template files in assets/html_templates/
 
 # Real functions start below - duplicates and CSS removed above
 
+
 def create_blog_index(blog_dir, posts_info, tags, config):
     """This is a duplicate - jumping to real function below"""
     pass
 
+
 def extract_title_and_excerpt(tex_file):
     """Extract title and excerpt from a LaTeX file"""
     try:
-        with open(tex_file, 'r') as f:
+        with open(tex_file, "r") as f:
             content = f.read()
-        
+
         # Extract title from \section{} command
         import re
-        title_match = re.search(r'\\section\{([^}]+)\}', content)
+
+        title_match = re.search(r"\\section\{([^}]+)\}", content)
         if title_match:
             title = title_match.group(1)
         else:
             # Fallback to filename
-            title = tex_file.stem.replace('-', ' ').title()
-        
+            title = tex_file.stem.replace("-", " ").title()
+
         # Extract excerpt from first few non-command lines
-        lines = content.split('\n')
+        lines = content.split("\n")
         excerpt_lines = []
-        
+
         in_document = False
         for line in lines:
             line = line.strip()
-            if '\\begin{document}' in line:
+            if "\\begin{document}" in line:
                 in_document = True
                 continue
-            if in_document and line and not line.startswith('\\') and not line.startswith('%'):
+            if (
+                in_document
+                and line
+                and not line.startswith("\\")
+                and not line.startswith("%")
+            ):
                 if len(line) > 10:  # Skip very short lines
                     excerpt_lines.append(line)
-                    if len(' '.join(excerpt_lines)) > 150:
+                    if len(" ".join(excerpt_lines)) > 150:
                         break
-            
+
             if excerpt_lines:
-                excerpt = ' '.join(excerpt_lines)
+                excerpt = " ".join(excerpt_lines)
                 excerpt = excerpt[:200] + "..." if len(excerpt) > 200 else excerpt
                 return title, excerpt
-        
+
         return title, "Research diary entry..."
     except:
-        return tex_file.stem.replace('-', ' ').title(), "Research diary entry..."
+        return tex_file.stem.replace("-", " ").title(), "Research diary entry..."
+
 
 def create_blog_index(blog_dir, posts_info, tags, config, compact=False):
     """Create the blog index.html file"""
     index_html = blog_dir / "index.html"
-    
+
     # Sort posts by date (newest first)
-    posts_info.sort(key=lambda x: x['date'], reverse=True)
-    
+    posts_info.sort(key=lambda x: x["date"], reverse=True)
+
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{config.get('author', 'Research Student')}'s {config.get('diary_title', 'Research Diary')}</title>
+    <title>{config.get("author", "Research Student")}'s {config.get("diary_title", "Research Diary")}</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>{config.get('author', 'Research Student')}'s {config.get('diary_title', 'Research Diary')}</h1>
+            <h1>{config.get("author", "Research Student")}'s {config.get("diary_title", "Research Diary")}</h1>
             <div class="blog-meta">
-                <p>{config.get('institution', 'University')} • {len(posts_info)} entries</p>
+                <p>{config.get("institution", "University")} • {len(posts_info)} entries</p>
             </div>
         </div>"""
-    
+
     if compact:
         # Compact table-of-contents style
         html_content += """
         <ul class="posts-list">"""
-        
+
         for post in posts_info:
             html_content += f"""
             <li class="post-item">
-                <div class="post-date">{post['date'].strftime('%m/%d')}</div>
+                <div class="post-date">{post["date"].strftime("%m/%d")}</div>
                 <h2 class="post-title">
-                    <a href="posts/{post['url']}">{post['title']}</a>
+                    <a href="posts/{post["url"]}">{post["title"]}</a>
                 </h2>
             </li>"""
-        
+
         html_content += """
         </ul>"""
     else:
         # Regular card-based layout
         html_content += """
         <div class="posts-grid">"""
-        
+
         for post in posts_info:
-            tags_html = ''.join([f'<a href="#" class="tag">{tag}</a>' for tag in post.get('tags', [])])
+            tags_html = "".join(
+                [f'<a href="#" class="tag">{tag}</a>' for tag in post.get("tags", [])]
+            )
             html_content += f"""
             <div class="post-card">
                 <h2 class="post-title">
-                    <a href="posts/{post['url']}">{post['title']}</a>
+                    <a href="posts/{post["url"]}">{post["title"]}</a>
                 </h2>
-                <div class="post-date">{post['date'].strftime('%B %d, %Y')}</div>
-                <div class="post-excerpt">{post['excerpt']}</div>
+                <div class="post-date">{post["date"].strftime("%B %d, %Y")}</div>
+                <div class="post-excerpt">{post["excerpt"]}</div>
                 <div class="post-tags">{tags_html}</div>
             </div>"""
-        
+
         html_content += """
         </div>"""
-    
+
     html_content += """
         
         <div class="footer">
@@ -1157,11 +1448,12 @@ def create_blog_index(blog_dir, posts_info, tags, config, compact=False):
     </div>
 </body>
 </html>"""
-    
-    with open(index_html, 'w', encoding='utf-8') as f:
+
+    with open(index_html, "w", encoding="utf-8") as f:
         f.write(html_content)
-    
+
     return index_html
+
 
 """
 # More orphaned CSS below - commented out
@@ -1245,148 +1537,161 @@ def create_blog_index(blog_dir, posts_info, tags, config, compact=False):
 }
 """
 
+
 def extract_title_and_excerpt(tex_file):
     """Extract title and excerpt from a LaTeX file"""
     try:
-        with open(tex_file, 'r') as f:
+        with open(tex_file, "r") as f:
             content = f.read()
-        
+
         # Extract title from \section{} or filename
-        title_match = re.search(r'\\section\{([^}]+)\}', content)
+        title_match = re.search(r"\\section\{([^}]+)\}", content)
         if title_match:
             title = title_match.group(1).strip()
         else:
             # Use filename as title, but clean it up better
             name_part = tex_file.stem
             # Remove date prefix if present
-            date_removed = re.sub(r'^\d{4}-\d{2}-\d{2}-?', '', name_part)
+            date_removed = re.sub(r"^\d{4}-\d{2}-\d{2}-?", "", name_part)
             if date_removed:
-                title = date_removed.replace('-', ' ').replace('_', ' ').title()
+                title = date_removed.replace("-", " ").replace("_", " ").title()
             else:
-                title = name_part.replace('-', ' ').replace('_', ' ').title()
-        
+                title = name_part.replace("-", " ").replace("_", " ").title()
+
         # Extract first substantial paragraph as excerpt
-        doc_start = content.find('\\begin{document}')
+        doc_start = content.find("\\begin{document}")
         if doc_start != -1:
             doc_content = content[doc_start:]
-            
+
             # Try to find content after common LaTeX structures
             # Skip \maketitle, \href, \section, etc.
-            lines = doc_content.split('\n')
+            lines = doc_content.split("\n")
             excerpt_lines = []
-            
+
             for line in lines:
                 line = line.strip()
                 # Skip empty lines, LaTeX commands, and comments
-                if (not line or 
-                    line.startswith('%') or 
-                    line.startswith('\\') or
-                    line in ['\\begin{document}', '\\end{document}', '\\maketitle']):
+                if (
+                    not line
+                    or line.startswith("%")
+                    or line.startswith("\\")
+                    or line in ["\\begin{document}", "\\end{document}", "\\maketitle"]
+                ):
                     continue
-                
+
                 # Clean up the line
-                clean_line = re.sub(r'\\[a-zA-Z]+\{[^}]*\}', '', line)
-                clean_line = re.sub(r'\\[a-zA-Z]+', '', clean_line)
+                clean_line = re.sub(r"\\[a-zA-Z]+\{[^}]*\}", "", line)
+                clean_line = re.sub(r"\\[a-zA-Z]+", "", clean_line)
                 clean_line = clean_line.strip()
-                
+
                 if len(clean_line) > 20:
                     excerpt_lines.append(clean_line)
-                    if len(' '.join(excerpt_lines)) > 150:
+                    if len(" ".join(excerpt_lines)) > 150:
                         break
-            
+
             if excerpt_lines:
-                excerpt = ' '.join(excerpt_lines)
+                excerpt = " ".join(excerpt_lines)
                 excerpt = excerpt[:200] + "..." if len(excerpt) > 200 else excerpt
                 return title, excerpt
-        
+
         return title, "Research diary entry..."
     except:
-        return tex_file.stem.replace('-', ' ').title(), "Research diary entry..."
+        return tex_file.stem.replace("-", " ").title(), "Research diary entry..."
+
 
 def create_blog_index(blog_dir, posts_info, tags, config, compact=False):
     """Create the blog index.html file using template system"""
     index_html = blog_dir / "index.html"
-    
+
     # Sort posts by date (newest first)
-    posts_info.sort(key=lambda x: x['date'], reverse=True)
-    
+    posts_info.sort(key=lambda x: x["date"], reverse=True)
+
     # Load the HTML template
-    template_content = load_html_template('index_template')
+    template_content = load_html_template("index_template")
     if not template_content:
         print("    ⚠️  Falling back to hardcoded HTML generation")
         return create_blog_index_legacy(blog_dir, posts_info, tags, config, compact)
-    
+
     # Prepare template context
     context = {
-        'PAGE_TITLE': f"{config.get('diary_title', 'Research Diary')} - {tags[0].title() if tags else 'All Posts'}",
-        'BLOG_TITLE': f"{config.get('author', 'Research Student')}'s {config.get('diary_title', 'Research Diary')}",
-        'DIARY_TITLE': config.get('diary_title', 'Research Diary'),
-        'AUTHOR': config.get('author', 'Research Student'),
-        'INSTITUTION': config.get('institution', 'University'),
-        'POST_COUNT': len(posts_info),
-        'TOPICS': ', '.join(tag.title() for tag in tags) if tags else '',
-        '#TOPICS': bool(tags),
-        '#COMPACT_MODE': compact,
-        '^COMPACT_MODE': not compact,
-        'GENERATION_DATE': datetime.now().strftime('%Y-%m-%d %H:%M'),
-        '#POSTS': True,
-        'POSTS': []
+        "PAGE_TITLE": f"{config.get('diary_title', 'Research Diary')} - {tags[0].title() if tags else 'All Posts'}",
+        "BLOG_TITLE": f"{config.get('author', 'Research Student')}'s {config.get('diary_title', 'Research Diary')}",
+        "DIARY_TITLE": config.get("diary_title", "Research Diary"),
+        "AUTHOR": config.get("author", "Research Student"),
+        "INSTITUTION": config.get("institution", "University"),
+        "POST_COUNT": len(posts_info),
+        "TOPICS": ", ".join(tag.title() for tag in tags) if tags else "",
+        "#TOPICS": bool(tags),
+        "#COMPACT_MODE": compact,
+        "^COMPACT_MODE": not compact,
+        "GENERATION_DATE": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "#POSTS": True,
+        "POSTS": [],
     }
-    
+
     # Prepare posts data
     for post in posts_info:
-        short_date = post['date'].strftime('%m/%d/%y') if hasattr(post['date'], 'strftime') else post.get('formatted_date', '').split(',')[0]
+        short_date = (
+            post["date"].strftime("%m/%d/%y")
+            if hasattr(post["date"], "strftime")
+            else post.get("formatted_date", "").split(",")[0]
+        )
         post_data = {
-            'TITLE': post['title'],
-            'HTML_FILE': post['html_file'],
-            'SHORT_DATE': short_date,
-            'FORMATTED_DATE': post['formatted_date'],
-            'EXCERPT': post['excerpt'],
-            'TAGS': post['tags']
+            "TITLE": post["title"],
+            "HTML_FILE": post["html_file"],
+            "SHORT_DATE": short_date,
+            "FORMATTED_DATE": post["formatted_date"],
+            "EXCERPT": post["excerpt"],
+            "TAGS": post["tags"],
         }
-        context['POSTS'].append(post_data)
-    
+        context["POSTS"].append(post_data)
+
     # Render the template
     html_content = render_template(template_content, context)
-    
+
     # Write the generated HTML
-    with open(index_html, 'w', encoding='utf-8') as f:
+    with open(index_html, "w", encoding="utf-8") as f:
         f.write(html_content)
-    
+
     return index_html
+
 
 def create_blog_index_legacy(blog_dir, posts_info, tags, config, compact=False):
     """Legacy hardcoded HTML generation as fallback"""
     index_html = blog_dir / "index.html"
-    
+
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{config.get('diary_title', 'Research Diary')} - {tags[0].title() if tags else 'All Posts'}</title>
+    <title>{config.get("diary_title", "Research Diary")} - {tags[0].title() if tags else "All Posts"}</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
     <div class="header">
-            <h1>{config.get('author', 'Research Student')}'s {config.get('diary_title', 'Research Diary')}</h1>
+            <h1>{config.get("author", "Research Student")}'s {config.get("diary_title", "Research Diary")}</h1>
             <div class="blog-meta">
-                <p>{config.get('author', 'Research Student')} • {config.get('institution', 'University')} • {len(posts_info)} entries</p>
-                {f'<p class="subtitle">Topic: {", ".join(tag.title() for tag in tags)}</p>' if tags else ''}
+                <p>{config.get("author", "Research Student")} • {config.get("institution", "University")} • {len(posts_info)} entries</p>
+                {f'<p class="subtitle">Topic: {", ".join(tag.title() for tag in tags)}</p>' if tags else ""}
     </div>
         </div>"""
-    
+
     if compact:
         html_content += """
         <ul class="posts-list">"""
         for post in posts_info:
-            short_date = post['date'].strftime('%m/%d/%y') if hasattr(post['date'], 'strftime') else post.get('formatted_date', '').split(',')[0]
+            short_date = (
+                post["date"].strftime("%m/%d/%y")
+                if hasattr(post["date"], "strftime")
+                else post.get("formatted_date", "").split(",")[0]
+            )
             html_content += f"""
             <li class="post-item">
                 <div class="post-date">{short_date}</div>
                 <h2 class="post-title">
-                    <a href="posts/{post['html_file']}">{post['title']}</a>
+                    <a href="posts/{post["html_file"]}">{post["title"]}</a>
                 </h2>
             </li>"""
         html_content += """
@@ -1398,61 +1703,71 @@ def create_blog_index_legacy(blog_dir, posts_info, tags, config, compact=False):
         html_content += f"""
         <article class="post-item">
             <h2 class="post-title">
-                <a href="posts/{post['html_file']}">{post['title']}</a>
+                <a href="posts/{post["html_file"]}">{post["title"]}</a>
             </h2>
-            <div class="post-date">{post['formatted_date']}</div>
-            <div class="post-excerpt">{post['excerpt']}</div>
+            <div class="post-date">{post["formatted_date"]}</div>
+            <div class="post-excerpt">{post["excerpt"]}</div>
             <div class="post-tags">
-                    {''.join(f'<span class="tag">{tag}</span>' for tag in post['tags'])}
+                    {"".join(f'<span class="tag">{tag}</span>' for tag in post["tags"])}
             </div>
             </article>"""
         html_content += """
         </div>"""
-    
+
     html_content += f"""
     </div>
     <div class="footer">
-        <p>Generated by {config.get('diary_title', 'Research Diary')} System on {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
+        <p>Generated by {config.get("diary_title", "Research Diary")} System on {datetime.now().strftime("%Y-%m-%d %H:%M")}</p>
     </div>
 </body>
 </html>"""
-    
-    with open(index_html, 'w', encoding='utf-8') as f:
+
+    with open(index_html, "w", encoding="utf-8") as f:
         f.write(html_content)
-    
+
     return index_html
+
 
 def compile_single_entry_to_html_with_mathjax(tex_file, output_dir):
     """Clean LaTeX to HTML compilation with MathJax custom command support"""
-    if not shutil.which('pandoc'): 
+    if not shutil.which("pandoc"):
         raise RuntimeError("pandoc not found")
-    
+
     base_dir = get_base_dir()
     html_file = output_dir / f"{tex_file.stem}.html"
     original_dir = os.getcwd()
-    
+
     try:
         os.chdir(output_dir)
         print(f"    🚀 Converting {tex_file.name} to HTML with MathJax...")
-        
+
         # Create a simplified version of the tex file for pandoc
         simplified_tex = create_simplified_tex_for_pandoc(tex_file, base_dir)
-        
+
         # Simple, clean pandoc conversion using simplified tex
         pandoc_cmd = [
-            'pandoc', str(simplified_tex), '-o', html_file.name,
-            '--standalone', '--mathjax',
-            '--from', 'latex',
-            '--to', 'html5',
-            '--css', 'post.css'
+            "pandoc",
+            str(simplified_tex),
+            "-o",
+            html_file.name,
+            "--standalone",
+            "--mathjax",
+            "--from",
+            "latex",
+            "--to",
+            "html5",
+            "--css",
+            "post.css",
         ]
-        
-        result = subprocess.run(pandoc_cmd, capture_output=True, text=True, cwd=output_dir)
-        
+
+        result = subprocess.run(
+            pandoc_cmd, capture_output=True, text=True, cwd=output_dir
+        )
+
         # Clean up temporary simplified file
         if simplified_tex.exists():
             simplified_tex.unlink()
-        
+
         if result.returncode == 0 and html_file.exists():
             # Enhance the HTML with custom MathJax configuration
             enhance_html_with_custom_mathjax(html_file)
@@ -1461,69 +1776,89 @@ def compile_single_entry_to_html_with_mathjax(tex_file, output_dir):
         else:
             print(f"    ❌ HTML conversion failed: {result.stderr[:200]}...")
             return None
-            
+
     except Exception as e:
         print(f"    ❌ Error in LaTeX processing: {e}")
         return None
     finally:
         os.chdir(original_dir)
 
+
 def create_simplified_tex_for_pandoc(tex_file, base_dir):
     """Create a simplified version of the tex file that pandoc can handle"""
     import re
-    
+
     print(f"    📝 Creating simplified version of {tex_file.name}...")
-    
+
     try:
-        with open(tex_file, 'r', encoding='utf-8') as f:
+        with open(tex_file, "r", encoding="utf-8") as f:
             content = f.read()
-        
+
         # Remove problematic includes and usepackages
         simplified_content = content
-        
+
         # Remove custom style includes
-        simplified_content = re.sub(r'\\input\{.*?diary.*?\}', '', simplified_content)
-        simplified_content = re.sub(r'\\usepackage\{.*?diary.*?\}', '', simplified_content)
-        
+        simplified_content = re.sub(r"\\input\{.*?diary.*?\}", "", simplified_content)
+        simplified_content = re.sub(
+            r"\\usepackage\{.*?diary.*?\}", "", simplified_content
+        )
+
         # Remove problematic custom commands that cause issues
         problematic_commands = [
-            r'\\newcommand\{\\workingDate\}.*?\n',
-            r'\\newcommand\{\\userName\}.*?\n',
-            r'\\newcommand\{\\institution\}.*?\n',
-            r'\\definecolorbox.*?\n',
+            r"\\newcommand\{\\workingDate\}.*?\n",
+            r"\\newcommand\{\\userName\}.*?\n",
+            r"\\newcommand\{\\institution\}.*?\n",
+            r"\\definecolorbox.*?\n",
         ]
-        
+
         for pattern in problematic_commands:
-            simplified_content = re.sub(pattern, '', simplified_content, flags=re.DOTALL)
-        
+            simplified_content = re.sub(
+                pattern, "", simplified_content, flags=re.DOTALL
+            )
+
         # Keep essential document structure but simplify
         # Replace custom theorem environments with simple versions
-        simplified_content = re.sub(r'\\begin\{ctheorem\}', r'\\begin{quote}\\textbf{Theorem:} ', simplified_content)
-        simplified_content = re.sub(r'\\end\{ctheorem\}', r'\\end{quote}', simplified_content)
-        
-        simplified_content = re.sub(r'\\begin\{cproof\}', r'\\begin{quote}\\textbf{Proof:} ', simplified_content)
-        simplified_content = re.sub(r'\\end\{cproof\}', r'\\end{quote}', simplified_content)
-        
+        simplified_content = re.sub(
+            r"\\begin\{ctheorem\}",
+            r"\\begin{quote}\\textbf{Theorem:} ",
+            simplified_content,
+        )
+        simplified_content = re.sub(
+            r"\\end\{ctheorem\}", r"\\end{quote}", simplified_content
+        )
+
+        simplified_content = re.sub(
+            r"\\begin\{cproof\}", r"\\begin{quote}\\textbf{Proof:} ", simplified_content
+        )
+        simplified_content = re.sub(
+            r"\\end\{cproof\}", r"\\end{quote}", simplified_content
+        )
+
         # Add basic document class if missing
-        if '\\documentclass' not in simplified_content:
-            simplified_content = '\\documentclass{article}\n\\usepackage{amsmath}\n\\usepackage{amssymb}\n\\begin{document}\n' + simplified_content + '\n\\end{document}'
-        
+        if "\\documentclass" not in simplified_content:
+            simplified_content = (
+                "\\documentclass{article}\n\\usepackage{amsmath}\n\\usepackage{amssymb}\n\\begin{document}\n"
+                + simplified_content
+                + "\n\\end{document}"
+            )
+
         # Create temporary simplified file
         simplified_file = tex_file.parent / f"{tex_file.stem}_simplified.tex"
-        with open(simplified_file, 'w', encoding='utf-8') as f:
+        with open(simplified_file, "w", encoding="utf-8") as f:
             f.write(simplified_content)
-        
+
         print(f"    ✅ Created simplified tex: {simplified_file.name}")
         return simplified_file
-        
+
     except Exception as e:
         print(f"    ⚠️  Failed to create simplified tex: {e}")
         return tex_file  # Fall back to original
 
+
 def enhance_html_with_custom_mathjax(html_file):
     """Add custom MathJax configuration to handle custom LaTeX commands"""
     import re
-    
+
     # Custom MathJax configuration for your commands
     mathjax_config = r"""
 <script>
@@ -1611,143 +1946,154 @@ MathJax = {
 };
 </script>
 """
-    
+
     try:
         # Read the HTML file
-        with open(html_file, 'r', encoding='utf-8') as f:
+        with open(html_file, "r", encoding="utf-8") as f:
             html_content = f.read()
-        
+
         # Insert the custom MathJax configuration BEFORE the MathJax script loads
         mathjax_script_pattern = r'<script\s+src="[^"]*mathjax[^"]*"[^>]*></script>'
-        
+
         if re.search(mathjax_script_pattern, html_content):
             # Insert our config before the MathJax script
-            html_content = re.sub(mathjax_script_pattern, mathjax_config + '\n\\g<0>', html_content)
+            html_content = re.sub(
+                mathjax_script_pattern, mathjax_config + "\n\\g<0>", html_content
+            )
         else:
             # Fallback: insert before </head> tag
-            if '</head>' in html_content:
-                html_content = html_content.replace('</head>', mathjax_config + '\n</head>')
+            if "</head>" in html_content:
+                html_content = html_content.replace(
+                    "</head>", mathjax_config + "\n</head>"
+                )
             else:
                 # If no </head> tag, insert after <head> or at the beginning
-                if '<head>' in html_content:
-                    html_content = html_content.replace('<head>', '<head>\n' + mathjax_config)
+                if "<head>" in html_content:
+                    html_content = html_content.replace(
+                        "<head>", "<head>\n" + mathjax_config
+                    )
                 else:
-                    html_content = mathjax_config + '\n' + html_content
-        
+                    html_content = mathjax_config + "\n" + html_content
+
         # Write back the enhanced HTML
-        with open(html_file, 'w', encoding='utf-8') as f:
+        with open(html_file, "w", encoding="utf-8") as f:
             f.write(html_content)
-        
-        print(f"    🎨 Enhanced HTML with custom MathJax configuration")
-        
+
+        print("    🎨 Enhanced HTML with custom MathJax configuration")
+
     except Exception as e:
         print(f"    ⚠️  Failed to enhance HTML with MathJax config: {e}")
         # Continue anyway - the basic HTML should still work
 
+
 def parse_latex_commands_from_files(base_dir):
     """Parse all LaTeX command definitions from .sty and .tex files"""
     import re
-    from pathlib import Path
-    
+
     commands = {
-        'simple': {},      # \cmd -> replacement
-        'one_arg': {},     # \cmd{arg} -> replacement with \g<1>
-        'two_arg': {},     # \cmd{arg1}{arg2} -> replacement with \g<1>, \g<2>
-        'operators': {}    # \DeclareMathOperator commands
+        "simple": {},  # \cmd -> replacement
+        "one_arg": {},  # \cmd{arg} -> replacement with \g<1>
+        "two_arg": {},  # \cmd{arg1}{arg2} -> replacement with \g<1>, \g<2>
+        "operators": {},  # \DeclareMathOperator commands
     }
-    
+
     # Find all .sty and .tex files
-    sty_files = list(base_dir.glob('**/*.sty'))
-    tex_files = list(base_dir.glob('**/*.tex'))
+    sty_files = list(base_dir.glob("**/*.sty"))
+    tex_files = list(base_dir.glob("**/*.tex"))
     all_files = sty_files + tex_files
-    
+
     print(f"    🔍 Scanning {len(all_files)} LaTeX files for command definitions...")
-    
+
     total_found = 0
-    
+
     for file_path in all_files:
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
-            
+
             # Parse \newcommand{\cmd}[n]{definition}
-            newcommand_pattern = r'\\(?:new|renew)command\{\\([^}]+)\}(?:\[(\d+)\])?\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
+            newcommand_pattern = r"\\(?:new|renew)command\{\\([^}]+)\}(?:\[(\d+)\])?\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}"
             for match in re.finditer(newcommand_pattern, content):
                 cmd_name = match.group(1)
                 num_args = match.group(2)
                 definition = match.group(3)
-                
-                if num_args is None or num_args == '0':
+
+                if num_args is None or num_args == "0":
                     # Simple command with no arguments
-                    commands['simple'][cmd_name] = definition
-                elif num_args == '1':
+                    commands["simple"][cmd_name] = definition
+                elif num_args == "1":
                     # Command with one argument
                     # Replace #1 with \g<1> for regex replacement
-                    regex_def = definition.replace('#1', r'\g<1>')
-                    commands['one_arg'][cmd_name] = regex_def
-                elif num_args == '2':
+                    regex_def = definition.replace("#1", r"\g<1>")
+                    commands["one_arg"][cmd_name] = regex_def
+                elif num_args == "2":
                     # Command with two arguments
-                    regex_def = definition.replace('#1', r'\g<1>').replace('#2', r'\g<2>')
-                    commands['two_arg'][cmd_name] = regex_def
-                
+                    regex_def = definition.replace("#1", r"\g<1>").replace(
+                        "#2", r"\g<2>"
+                    )
+                    commands["two_arg"][cmd_name] = regex_def
+
                 total_found += 1
-            
+
             # Parse \DeclareMathOperator{\cmd}{definition}
             # Handle nested braces in definition
-            declaremath_pattern = r'\\DeclareMathOperator\*?\{\\([^}]+)\}\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
+            declaremath_pattern = r"\\DeclareMathOperator\*?\{\\([^}]+)\}\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}"
             for match in re.finditer(declaremath_pattern, content):
                 cmd_name = match.group(1)
                 definition = match.group(2)
                 # Convert to \operatorname format
-                if '*' in content[match.start():match.start()+20]:  # Check if it's \DeclareMathOperator*
-                    commands['operators'][cmd_name] = f'\\operatorname*{{{definition}}}'
+                if (
+                    "*" in content[match.start() : match.start() + 20]
+                ):  # Check if it's \DeclareMathOperator*
+                    commands["operators"][cmd_name] = f"\\operatorname*{{{definition}}}"
                 else:
-                    commands['operators'][cmd_name] = f'\\operatorname{{{definition}}}'
+                    commands["operators"][cmd_name] = f"\\operatorname{{{definition}}}"
                 total_found += 1
-            
+
             # Parse \def\cmd{definition} (simple form)
-            def_pattern = r'\\def\\([a-zA-Z]+)\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
+            def_pattern = r"\\def\\([a-zA-Z]+)\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}"
             for match in re.finditer(def_pattern, content):
                 cmd_name = match.group(1)
                 definition = match.group(2)
-                commands['simple'][cmd_name] = definition
+                commands["simple"][cmd_name] = definition
                 total_found += 1
-                
+
         except Exception as e:
             print(f"    ⚠️  Could not parse {file_path.name}: {e}")
-    
+
     print(f"    📊 Found {total_found} command definitions:")
     print(f"      - Simple commands: {len(commands['simple'])}")
     print(f"      - One-argument commands: {len(commands['one_arg'])}")
     print(f"      - Two-argument commands: {len(commands['two_arg'])}")
     print(f"      - Math operators: {len(commands['operators'])}")
-    
-    
+
     return commands
+
 
 def add_simple_mathjax_commands(html_file):
     """Add MathJax custom commands with automatic LaTeX parsing"""
     try:
-        with open(html_file, 'r', encoding='utf-8') as f:
+        with open(html_file, "r", encoding="utf-8") as f:
             content = f.read()
-        
+
         # Only add if MathJax is already present
-        if 'mathjax' in content.lower():
+        if "mathjax" in content.lower():
             print(f"    🔧 Processing MathJax commands in {html_file.name}...")
-            
+
             # Parse all LaTeX commands from files
             base_dir = get_base_dir()
             latex_commands = parse_latex_commands_from_files(base_dir)
-            
+
             import re
+
             replacements_made = 0
-            
+
             # AUTOMATIC COMMAND REPLACEMENT SYSTEM
-            
+
             # 1. Replace simple commands (no arguments)
-            for cmd_name, definition in latex_commands['simple'].items():
+            for cmd_name, definition in latex_commands["simple"].items():
                 try:
-                    pattern = rf'\\{re.escape(cmd_name)}(?![a-zA-Z])'
+                    pattern = rf"\\{re.escape(cmd_name)}(?![a-zA-Z])"
                     matches = len(re.findall(pattern, content))
                     if matches > 0:
                         # Use lambda to avoid escape issues with the replacement string
@@ -1756,52 +2102,68 @@ def add_simple_mathjax_commands(html_file):
                         print(f"      ✅ Replaced \\{cmd_name} ({matches} times)")
                 except Exception as e:
                     print(f"      ⚠️  Error replacing \\{cmd_name}: {e}")
-            
+
             # 2. Replace one-argument commands
-            for cmd_name, definition in latex_commands['one_arg'].items():
+            for cmd_name, definition in latex_commands["one_arg"].items():
                 try:
-                    pattern = rf'\\{re.escape(cmd_name)}\{{([^}}]+)\}}'
+                    pattern = rf"\\{re.escape(cmd_name)}\{{([^}}]+)\}}"
                     matches = len(re.findall(pattern, content))
                     if matches > 0:
                         # Fix: properly substitute the argument into the definition
                         def replace_func(match):
                             arg = match.group(1)
-                            return definition.replace(r'\g<1>', arg)
+                            return definition.replace(r"\g<1>", arg)
+
                         content = re.sub(pattern, replace_func, content)
                         replacements_made += matches
-                        print(f"      ✅ Replaced \\{cmd_name}{{...}} ({matches} times)")
+                        print(
+                            f"      ✅ Replaced \\{cmd_name}{{...}} ({matches} times)"
+                        )
                 except Exception as e:
                     print(f"      ⚠️  Error replacing \\{cmd_name}{{...}}: {e}")
-            
+
             # 3. Replace two-argument commands
-            for cmd_name, definition in latex_commands['two_arg'].items():
-                pattern = rf'\\{re.escape(cmd_name)}\{{([^}}]+)\}}\{{([^}}]+)\}}'
+            for cmd_name, definition in latex_commands["two_arg"].items():
+                pattern = rf"\\{re.escape(cmd_name)}\{{([^}}]+)\}}\{{([^}}]+)\}}"
                 matches = len(re.findall(pattern, content))
                 if matches > 0:
                     # Fix: properly substitute both arguments into the definition
                     def replace_func(match):
                         arg1, arg2 = match.group(1), match.group(2)
-                        return definition.replace(r'\g<1>', arg1).replace(r'\g<2>', arg2)
+                        return definition.replace(r"\g<1>", arg1).replace(
+                            r"\g<2>", arg2
+                        )
+
                     content = re.sub(pattern, replace_func, content)
                     replacements_made += matches
-                    print(f"      ✅ Replaced \\{cmd_name}{{...}}{{...}} ({matches} times)")
-            
+                    print(
+                        f"      ✅ Replaced \\{cmd_name}{{...}}{{...}} ({matches} times)"
+                    )
+
             # 4. Replace math operators
-            for cmd_name, definition in latex_commands['operators'].items():
-                pattern = rf'\\{re.escape(cmd_name)}(?![a-zA-Z])'
+            for cmd_name, definition in latex_commands["operators"].items():
+                pattern = rf"\\{re.escape(cmd_name)}(?![a-zA-Z])"
                 matches = len(re.findall(pattern, content))
                 if matches > 0:
                     # Use lambda to avoid escape issues with the replacement string
                     content = re.sub(pattern, lambda m: definition, content)
                     replacements_made += matches
-                    print(f"      ✅ Replaced \\{cmd_name} (operator) ({matches} times)")
-            
+                    print(
+                        f"      ✅ Replaced \\{cmd_name} (operator) ({matches} times)"
+                    )
+
             # 5. Special handling for \vv commands without braces (legacy support)
             vv_patterns = [
-                (r'\\vv\s+([a-zA-Z]+)', r'\\boldsymbol{\g<1>}'),  # \vv f -> \boldsymbol{f}
-                (r'\\vv(\\[a-zA-Z]+)', r'\\boldsymbol{\g<1>}'),   # \vv\theta -> \boldsymbol{\theta}
+                (
+                    r"\\vv\s+([a-zA-Z]+)",
+                    r"\\boldsymbol{\g<1>}",
+                ),  # \vv f -> \boldsymbol{f}
+                (
+                    r"\\vv(\\[a-zA-Z]+)",
+                    r"\\boldsymbol{\g<1>}",
+                ),  # \vv\theta -> \boldsymbol{\theta}
             ]
-            
+
             vv_total_matches = 0
             for pattern, replacement in vv_patterns:
                 matches = len(re.findall(pattern, content))
@@ -1809,78 +2171,86 @@ def add_simple_mathjax_commands(html_file):
                     content = re.sub(pattern, replacement, content)
                     replacements_made += matches
                     vv_total_matches += matches
-            
+
             if vv_total_matches > 0:
-                print(f"      ✅ Replaced \\vv without braces ({vv_total_matches} times)")
-            
+                print(
+                    f"      ✅ Replaced \\vv without braces ({vv_total_matches} times)"
+                )
+
             if replacements_made > 0:
                 print(f"    📊 Total command replacements: {replacements_made}")
             else:
-                print(f"    ℹ️  No custom commands found to replace")
-                
+                print("    ℹ️  No custom commands found to replace")
+
             # Write the updated content (inside the mathjax block)
-            with open(html_file, 'w', encoding='utf-8') as f:
+            with open(html_file, "w", encoding="utf-8") as f:
                 f.write(content)
-            
+
             # Debug: Check if replacements actually took effect
             if replacements_made > 0:
-                with open(html_file, 'r', encoding='utf-8') as f:
+                with open(html_file, "r", encoding="utf-8") as f:
                     check_content = f.read()
-                if 'mathbb' in check_content:
-                    print(f"      🎉 Verified: mathbb found in saved file")
+                if "mathbb" in check_content:
+                    print("      🎉 Verified: mathbb found in saved file")
                 else:
-                    print(f"      ⚠️  Warning: No mathbb found in saved file despite {replacements_made} replacements")
-                
+                    print(
+                        f"      ⚠️  Warning: No mathbb found in saved file despite {replacements_made} replacements"
+                    )
+
     except Exception as e:
         import traceback
+
         print(f"    ⚠️  Could not process MathJax commands: {e}")
-        print(f"    📍 Error location: {traceback.format_exc().split('File')[1].split(',')[0] if 'File' in traceback.format_exc() else 'Unknown'}")
+        print(
+            f"    📍 Error location: {traceback.format_exc().split('File')[1].split(',')[0] if 'File' in traceback.format_exc() else 'Unknown'}"
+        )
         traceback.print_exc()
+
 
 def copy_bibliography_files(posts_dir, base_dir):
     """Copy bibliography files to the blog posts directory"""
     import shutil
-    
+
     bib_source = base_dir / "assets" / "bib"
     if bib_source.exists():
         bib_dest = posts_dir / "assets" / "bib"
         bib_dest.mkdir(parents=True, exist_ok=True)
-        
+
         copied_count = 0
         for bib_file in bib_source.glob("*.bib"):
             shutil.copy2(bib_file, bib_dest / bib_file.name)
             copied_count += 1
             print(f"    📚 Copied bibliography: {bib_file.name}")
-        
+
         if copied_count > 0:
             print(f"    ✅ Bibliography setup complete: {copied_count} files copied")
     else:
         print(f"    ⚠️  No bibliography directory found at {bib_source}")
 
+
 def copy_required_assets_to_blog(blog_dir, posts_dir, base_dir):
     """Analyze HTML files and copy only the assets they actually reference"""
     import re
-    from pathlib import Path
-    
+
     print("INFO: Analyzing HTML files for asset dependencies...")
-    
+
     # Find all asset references in HTML files
     asset_refs = set()
     html_files = list(posts_dir.glob("*.html"))
-    
+
     for html_file in html_files:
         try:
-            with open(html_file, 'r', encoding='utf-8') as f:
+            with open(html_file, "r", encoding="utf-8") as f:
                 content = f.read()
-                
+
                 # Find all assets/ references using multiple patterns
                 patterns = [
-                    r'src=["\']([^"\']*assets/[^"\']*)["\']',      # img src, script src
-                    r'href=["\']([^"\']*assets/[^"\']*)["\']',     # link href, a href
-                    r'url\(["\']?([^"\']*assets/[^"\']*)["\']?\)', # CSS url()
-                    r'assets/[^"\'>\s\)]+',                        # any bare assets/ reference
+                    r'src=["\']([^"\']*assets/[^"\']*)["\']',  # img src, script src
+                    r'href=["\']([^"\']*assets/[^"\']*)["\']',  # link href, a href
+                    r'url\(["\']?([^"\']*assets/[^"\']*)["\']?\)',  # CSS url()
+                    r'assets/[^"\'>\s\)]+',  # any bare assets/ reference
                 ]
-                
+
                 for pattern in patterns:
                     matches = re.findall(pattern, content)
                     if isinstance(matches[0] if matches else None, tuple):
@@ -1889,33 +2259,33 @@ def copy_required_assets_to_blog(blog_dir, posts_dir, base_dir):
                     else:
                         # Direct matches
                         asset_refs.update(matches)
-        
+
         except Exception as e:
             print(f"    ⚠️  Warning: Could not parse {html_file.name}: {e}")
-    
+
     # Clean up asset references (remove any that don't start with assets/)
-    asset_refs = {ref for ref in asset_refs if ref.startswith('assets/')}
-    
+    asset_refs = {ref for ref in asset_refs if ref.startswith("assets/")}
+
     if not asset_refs:
         print("    📄 No asset references found in HTML files")
         return
-    
+
     print(f"    📄 Found {len(asset_refs)} unique asset references:")
     for ref in sorted(asset_refs):
         print(f"      - {ref}")
-    
+
     # Copy each referenced asset
     copied_count = 0
     missing_count = 0
-    
+
     for asset_path in asset_refs:
         source_file = base_dir / asset_path
         dest_file = blog_dir / asset_path
-        
+
         if source_file.exists():
             # Create directory structure as needed
             dest_file.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # Copy file with metadata preservation
             shutil.copy2(source_file, dest_file)
             copied_count += 1
@@ -1923,44 +2293,51 @@ def copy_required_assets_to_blog(blog_dir, posts_dir, base_dir):
         else:
             missing_count += 1
             print(f"    ❌ Missing asset: {asset_path}")
-    
-    print(f"    📦 Asset copying complete: {copied_count} copied, {missing_count} missing")
-    
+
+    print(
+        f"    📦 Asset copying complete: {copied_count} copied, {missing_count} missing"
+    )
+
     return copied_count, missing_count
+
 
 def cmd_blog(args):
     """Generate a blog with individual HTML posts and index page"""
     base_dir, config = get_base_dir(), load_config()
-    
+
     try:
         # Find matching files
         matching_files = find_files_by_tags(args.tags)
         if not matching_files:
             raise FileNotFoundError(f"No diary entries found with tags: {args.tags}")
-        
+
         print(f"INFO: Found {len(matching_files)} entries for blog")
-        
+
         # Create blog directory structure
-        normalized_tags = [re.sub(r'\s+', ' ', tag.strip().lower()) for tag in args.tags]
-        blog_name = "+".join([tag.replace(' ', '-') for tag in sorted(set(normalized_tags))])
+        normalized_tags = [
+            re.sub(r"\s+", " ", tag.strip().lower()) for tag in args.tags
+        ]
+        blog_name = "+".join(
+            [tag.replace(" ", "-") for tag in sorted(set(normalized_tags))]
+        )
         blog_dir = base_dir / "blogs" / blog_name
         posts_dir = blog_dir / "posts"
-        
+
         # Create directories
         blog_dir.mkdir(parents=True, exist_ok=True)
         posts_dir.mkdir(exist_ok=True)
-        
+
         print(f"INFO: Creating blog in {blog_dir}")
-        
+
         # Note: Skip setup_output_directory for blogs - we'll copy only required assets later
-        
+
         # Compile individual posts
         posts_info = []
         print("INFO: Compiling individual posts...")
-        
+
         for tex_file in matching_files:
             print(f"  Processing {tex_file.name}...")
-            
+
             # Compile to HTML
             html_file = compile_single_entry_to_html(tex_file, posts_dir)
             if html_file:
@@ -1969,98 +2346,138 @@ def cmd_blog(args):
                 # Extract metadata
                 title, excerpt = extract_title_and_excerpt(tex_file)
                 tags = extract_tags_from_file(tex_file)
-                
+
                 # Parse date from filename
-                date_match = re.match(r'(\d{4})-(\d{2})-(\d{2})', tex_file.name)
+                date_match = re.match(r"(\d{4})-(\d{2})-(\d{2})", tex_file.name)
                 if date_match:
                     date_str = f"{date_match.group(1)}-{date_match.group(2)}-{date_match.group(3)}"
-                    date_obj = datetime.strptime(date_str, '%Y-%m-%d')
-                    formatted_date = date_obj.strftime('%B %d, %Y')
+                    date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+                    formatted_date = date_obj.strftime("%B %d, %Y")
                 else:
                     formatted_date = "Unknown Date"
-                
-                posts_info.append({
-                    'title': title,
-                    'excerpt': excerpt,
-                    'tags': tags,
-                    'date': date_obj if date_match else datetime.now(),
-                    'formatted_date': formatted_date,
-                    'html_file': html_file.name,
-                    'tex_file': tex_file.name
-                })
-        
+
+                posts_info.append(
+                    {
+                        "title": title,
+                        "excerpt": excerpt,
+                        "tags": tags,
+                        "date": date_obj if date_match else datetime.now(),
+                        "formatted_date": formatted_date,
+                        "html_file": html_file.name,
+                        "tex_file": tex_file.name,
+                    }
+                )
+
         # Create CSS files
         print("INFO: Creating stylesheets...")
         # Default is compact mode, use --full flag for detailed view
         compact_mode = not args.full
-        with open(blog_dir / "style.css", 'w') as f:
+        with open(blog_dir / "style.css", "w") as f:
             f.write(create_blog_index_css(compact=compact_mode))
-        
-        with open(posts_dir / "post.css", 'w') as f:
+
+        with open(posts_dir / "post.css", "w") as f:
             f.write(create_blog_post_css_enhanced())
-        
+
         # Copy only the assets that are actually referenced in HTML files
         # Note: HTML files expect assets relative to their location (posts/assets/...)
         copy_required_assets_to_blog(posts_dir, posts_dir, base_dir)
-        
+
         # Copy bibliography files for citations
         copy_bibliography_files(posts_dir, base_dir)
-        
+
         # Create index.html
         print("INFO: Creating blog index...")
-        index_file = create_blog_index(blog_dir, posts_info, args.tags, config, compact=compact_mode)
-        
-        print(f"✅ Blog created successfully!")
+        index_file = create_blog_index(
+            blog_dir, posts_info, args.tags, config, compact=compact_mode
+        )
+
+        print("✅ Blog created successfully!")
         print(f"📂 Blog directory: {blog_dir}")
         print(f"🌐 Index page: {index_file}")
         print(f"📄 Individual posts: {len(posts_info)} HTML files in {posts_dir}")
         print(f"🚀 Open with: open {index_file}")
         try:
-            subprocess.run(['open', str(index_file)], check=True)
+            subprocess.run(["open", str(index_file)], check=True)
         except subprocess.CalledProcessError:
             print(f"WARNING: Could not open {index_file} automatically")
         except FileNotFoundError:
-            print("WARNING: 'open' command not found - please open {index_file} manually")
-        
+            print(
+                "WARNING: 'open' command not found - please open {index_file} manually"
+            )
+
     except Exception as e:
         print(f"Error creating blog: {e}")
         sys.exit(1)
+
 
 def main():
     # Check for year shortcut first (./diary 2025)
     if len(sys.argv) == 2 and sys.argv[1].isdigit():
         year = int(sys.argv[1])
+
         # Simulate compile command with year
         class YearArgs:
-            def __init__(self, year): self.year, self.output, self.format = year, None, 'pdf'
+            def __init__(self, year):
+                self.year, self.output, self.format = year, None, "pdf"
+
         setup_logging(False)
         cmd_compile(YearArgs(year))
         return
-    
-    parser = argparse.ArgumentParser(description="Research Diary System - Simple all-in-one script", formatter_class=argparse.RawDescriptionHelpFormatter, epilog="Examples:\n  ./diary today                     # Create today's entry\n  ./diary today machine-learning    # Create entry (no quotes needed)\n  ./diary status                    # Show system status\n  ./diary 2025                      # Compile year 2025 (shortcut)\n  ./diary compile --year 2025       # Compile all 2025 entries\n  ./diary compile --year 2025 --format html  # Compile to HTML\n  ./diary tags AI ML                # Compile entries with tags (no quotes)\n  ./diary tags AI ML --format html  # Compile tags to HTML\n  ./diary blog AI ML                # Create blog with individual HTML posts")
-    parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose output')
-    subparsers = parser.add_subparsers(dest='command', help='Available commands')
-    today_parser = subparsers.add_parser('today', help='Create today\'s diary entry')
-    today_parser.add_argument('name', nargs='?', help='Optional name suffix (no quotes needed)')
+
+    parser = argparse.ArgumentParser(
+        description="Research Diary System - Simple all-in-one script",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="Examples:\n  ./diary today                     # Create today's entry\n  ./diary today machine-learning    # Create entry (no quotes needed)\n  ./diary status                    # Show system status\n  ./diary 2025                      # Compile year 2025 (shortcut)\n  ./diary compile --year 2025       # Compile all 2025 entries\n  ./diary compile --year 2025 --format html  # Compile to HTML\n  ./diary tags AI ML                # Compile entries with tags (no quotes)\n  ./diary tags AI ML --format html  # Compile tags to HTML\n  ./diary blog AI ML                # Create blog with individual HTML posts",
+    )
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Enable verbose output"
+    )
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    today_parser = subparsers.add_parser("today", help="Create today's diary entry")
+    today_parser.add_argument(
+        "name", nargs="?", help="Optional name suffix (no quotes needed)"
+    )
     today_parser.set_defaults(func=cmd_today)
-    status_parser = subparsers.add_parser('status', help='Show system status')
+    status_parser = subparsers.add_parser("status", help="Show system status")
     status_parser.set_defaults(func=cmd_status)
-    compile_parser = subparsers.add_parser('compile', help='Compile diary collection')
-    compile_parser.add_argument('--year', type=int, help='Year to compile')
-    compile_parser.add_argument('--format', choices=['pdf', 'html'], default='pdf', help='Output format (default: pdf)')
-    compile_parser.add_argument('--output', help='Output directory')
+    compile_parser = subparsers.add_parser("compile", help="Compile diary collection")
+    compile_parser.add_argument("--year", type=int, help="Year to compile")
+    compile_parser.add_argument(
+        "--format",
+        choices=["pdf", "html"],
+        default="pdf",
+        help="Output format (default: pdf)",
+    )
+    compile_parser.add_argument("--output", help="Output directory")
     compile_parser.set_defaults(func=cmd_compile)
-    tags_parser = subparsers.add_parser('tags', help='Compile entries by tags')
-    tags_parser.add_argument('tags', nargs='+', help='Tags to search for (no quotes needed)')
-    tags_parser.add_argument('--format', choices=['pdf', 'html'], default='pdf', help='Output format (default: pdf)')
-    tags_parser.add_argument('--output', help='Output directory')
+    tags_parser = subparsers.add_parser("tags", help="Compile entries by tags")
+    tags_parser.add_argument(
+        "tags", nargs="+", help="Tags to search for (no quotes needed)"
+    )
+    tags_parser.add_argument(
+        "--format",
+        choices=["pdf", "html"],
+        default="pdf",
+        help="Output format (default: pdf)",
+    )
+    tags_parser.add_argument("--output", help="Output directory")
     tags_parser.set_defaults(func=cmd_tags)
-    blog_parser = subparsers.add_parser('blog', help='Create a blog with individual HTML posts')
-    blog_parser.add_argument('tags', nargs='+', help='Tags to search for (creates blog for matching entries)')
-    blog_parser.add_argument('--full', action='store_true', help='Create full index with excerpts and tags (default is compact)')
+    blog_parser = subparsers.add_parser(
+        "blog", help="Create a blog with individual HTML posts"
+    )
+    blog_parser.add_argument(
+        "tags", nargs="+", help="Tags to search for (creates blog for matching entries)"
+    )
+    blog_parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Create full index with excerpts and tags (default is compact)",
+    )
     blog_parser.set_defaults(func=cmd_blog)
     args = parser.parse_args()
     setup_logging(args.verbose)
-    args.func(args) if hasattr(args, 'func') else parser.print_help()
+    args.func(args) if hasattr(args, "func") else parser.print_help()
 
-if __name__ == "__main__": main()
+
+if __name__ == "__main__":
+    main()

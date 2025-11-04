@@ -16,8 +16,8 @@
 \newcommand{\here}[1]{\url{#1}}
 
 %% PERSONAL ANNOTATION COMMANDS
-\newcommand{\Qiang}[1]{\textcolor{red}{#1}\\}
-\newcommand{\qiang}[1]{\textcolor{red}{#1}}
+\newcommand{\Li}[1]{\textcolor{red}{#1}\\}
+\newcommand{\li}[1]{\textcolor{red}{#1}}
 \newcommand{\Todo}[1]{\textcolor{red}{TODO: #1}\\}
 \newcommand{\todo}[1]{\textcolor{gray}{TODO: #1}}
 \newcommand{\ant}[1]{~~~~~~~\text{\textcolor{magenta}{//#1}}}
@@ -121,16 +121,16 @@
 
 %% EXTRA WIDE HAT (for wide expressions)
 \newcommand{\reallywidehat}[1]{\arraycolsep=0pt\relax%
-\begin{array}{c}
-\stretchto{
-  \scaleto{
-    \scalerel*[\widthof{\ensuremath{#1}}]{\kern-.5pt\bigwedge\kern-.5pt}
-    {\rule[-\textheight/2]{1ex}{\textheight}}
-  }{\textheight}
-}{0.5ex}\\
-#1\\
-\rule{-1ex}{0ex}
-\end{array}
+	\begin{array}{c}
+		\stretchto{
+			\scaleto{
+				\scalerel*[\widthof{\ensuremath{#1}}]{\kern-.5pt\bigwedge\kern-.5pt}
+				{\rule[-\textheight/2]{1ex}{\textheight}}
+			}{\textheight}
+		}{0.5ex} \\
+		#1       \\
+		\rule{-1ex}{0ex}
+	\end{array}
 }
 
 %% CUSTOM DEFINITION EQUALS
