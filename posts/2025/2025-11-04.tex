@@ -1,0 +1,36 @@
+% Add your research tags below (comma-separated, case-insensitive)
+% Year is automatically added as a tag
+%<TAGs>: 2025
+%<TOPICs>: 
+
+\makeatletter
+\def\input@path{{assets/styles/}}
+\makeatother
+\documentclass[11pt,letterpaper]{article}
+\newcommand{\checkboxUnchecked}{\tikz{\draw[thick] (0,0) rectangle (0.2,0.2);}}
+\newcommand{\checkboxChecked}{\tikz{\draw[thick] (0,0) rectangle (0.2,0.2); \draw[thick] (0,0) -- (0.2,0.2) (0,0.2) -- (0.2,0);}}
+\newcommand{\workingDate}{\textsc{2025 $|$ November $|$ 04}}
+\newcommand{\userName}{Yangyang Li}
+\newcommand{\institution}{Northwestern University}
+\newcommand{\diaryTitle}{Research Diary}
+
+\usepackage{tikz}
+\usepackage{diary_base}        % Core packages and basic theorems
+\usepackage{diary_ctheorems}   % Enhanced colored theorem environments (optional)
+\usepackage{diary_commands}   % Personal shortcuts and commands
+
+\begin{document}
+\href{run:2025-11-04.tex}{\Huge November 4}
+
+\section{Point-to-Point for Deepchopper}
+
+\begin{itemize}
+	\item \checkboxUnchecked{} Finetune on VCaP 004
+	\item \checkboxUnchecked{} Draw figures to explain the formation of chimera artifacts in dRNA-seq
+	\item \checkboxUnchecked{} Optimize the memory usage for chopping
+\end{itemize}
+
+
+% \bibliographystyle{apalike}
+% \bibliography{assets/bib/reference}
+\end{document}

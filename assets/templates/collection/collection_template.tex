@@ -1,4 +1,7 @@
 % <DIARY_TITLE> Collection Template for <AUTHOR> (<INSTITUTION>), <YEAR>
+\makeatletter
+\def\input@path{{assets/styles/}}
+\makeatother
 \documentclass[letterpaper,11pt]{article}
 \newcommand{\userName}{<AUTHOR>}
 \newcommand{\institution}{<INSTITUTION>}
@@ -7,9 +10,9 @@
 % Modular package loading - choose what you need
 % Files are symlinked in output directory for self-contained compilation
 
-\usepackage{assets/styles/diary_base}        % Core packages and basic theorems
-\usepackage{assets/styles/diary_ctheorems}   % Enhanced colored theorem environments
-\usepackage{assets/styles/diary_commands}   % Personal shortcuts and commands
+\usepackage{diary_base}        % Core packages and basic theorems
+\usepackage{diary_ctheorems}   % Enhanced colored theorem environments
+\usepackage{diary_commands}   % Personal shortcuts and commands
 
 % Turn off showlabels for clean output
 \renewcommand{\showlabels}[1]{}

@@ -6,7 +6,7 @@
 \documentclass[11pt,letterpaper]{article}
 
 \newcommand{\workingDate}{\textsc{2025 $|$ September $|$ 28}}
-\newcommand{\userName}{Qiang Liu}
+\newcommand{\userName}{Yangyang Li}
 \newcommand{\institution}{}
 \newcommand{\diaryTitle}{Research Diary} 
 
@@ -16,73 +16,73 @@
 
 
 \begin{document}
-\href{run:2025-09-28-2.tex}{\Huge September 28} 
+\href{run:2025-09-28-2.tex}{\Huge September 28}
 
 \section{Lecture: Proximal Policy Optimization}
- %Gradient de
+%Gradient de
 %Gradient descent is only one approach for optimization. 
 %Gradient descent is 
 %Generalizing
 
-\paragraph{Proximal Point Method} 
+\paragraph{Proximal Point Method}
 Going beyond gradient descent, proximal point methods offer a more general framework for optimization. Starting from an initialization $\theta^0$, they perform iterative updates of the form:
 $$
-\theta^{k+1} = \argmax_{\theta} 
-  \left \{ R(\theta) - \beta D(\theta, \theta^k) \right \},
+	\theta^{k+1} = \argmax_{\theta}
+	\left \{ R(\theta) - \beta D(\theta, \theta^k) \right \},
 $$
-where, at iteration $k$, the next point $\theta^{k+1}$ is obtained by maximizing the objective while penalizing deviation from $\theta^k$. Here, $D(\theta, \theta')$ is a discrepancy or distance measure between $\theta$ and $\theta'$. The default choice is $D(\theta, \theta') = \frac{1}{2}\norm{\theta - \theta'}^2$, though it is common to use KL divergence in policy optimization as we show below. 
+where, at iteration $k$, the next point $\theta^{k+1}$ is obtained by maximizing the objective while penalizing deviation from $\theta^k$. Here, $D(\theta, \theta')$ is a discrepancy or distance measure between $\theta$ and $\theta'$. The default choice is $D(\theta, \theta') = \frac{1}{2}\norm{\theta - \theta'}^2$, though it is common to use KL divergence in policy optimization as we show below.
 
-Each update from $\theta^k$ to $\theta^{k+1}$ requires solving an optimization problem, making the proximal point method a double-loop algorithm. Since this inner problem is often intractable, it is typically approximated using practical methods such as gradient descent or proximal gradient descent. 
+Each update from $\theta^k$ to $\theta^{k+1}$ requires solving an optimization problem, making the proximal point method a double-loop algorithm. Since this inner problem is often intractable, it is typically approximated using practical methods such as gradient descent or proximal gradient descent.
 
 Different approximations lead to different algorithmic variants.
 
 
 
 
-\paragraph{Proximal Gradient Descent} 
+\paragraph{Proximal Gradient Descent}
 Applying a first-order Taylor approximation to the objective function $R(\theta)$ gives:
 $$
-\theta^{k+1} = \argmax_{\theta} 
-  \left \{ \dd R(\theta^k) \tt (\theta - \theta^k) - \beta D(\theta, \theta^k) \right \}.
+	\theta^{k+1} = \argmax_{\theta}
+	\left \{ \dd R(\theta^k) \tt (\theta - \theta^k) - \beta D(\theta, \theta^k) \right \}.
 $$
 This yields the \emph{proximal gradient descent} method.
 
 \paragraph{Preconditioned Gradient Descent}
 Consider a quadratic proximal penalty:
 $$
-D(\theta, \theta^k) = \frac{1}{2}(\theta-\theta^k)\tt J(\theta^k)(\theta - \theta^k),
+	D(\theta, \theta^k) = \frac{1}{2}(\theta-\theta^k)\tt J(\theta^k)(\theta - \theta^k),
 $$
 where $J(\theta^k)$ is a positive definite preconditioning matrix chosen by the user. In this case, proximal gradient descent admits a closed-form solution:
 $$
-\theta^{k+1} = \theta^k + J(\theta^k)^{-1} \dd R(\theta^k).
+	\theta^{k+1} = \theta^k + J(\theta^k)^{-1} \dd R(\theta^k).
 $$
 This is known as \emph{preconditioned gradient descent}.
 
 
 \begin{remark}
-Assume we use gradient descent to solve the inner loops of proximal methods. The difference from vanilla gradient descent then lies in how the \emph{reference point} is updated. To see this, let us consider the following generic update rule:
-\[
-\theta^{k+1} 
-= \argmax_\theta \Bigl\{ \dd R(\theta^k)^\top (\theta - \theta^k) 
-- \beta D(\theta, \theta^{\mathrm{ref},k}) \Bigr\},
-\]
-where $\theta^{\mathrm{ref},k}$ is the reference point used to anchor the update at iteration $k$.
-%
-The choice of $\theta^{\mathrm{ref},k}$ governs the behavior of the algorithm:
-\begin{itemize}
-\item If $\theta^{\mathrm{ref},k} = \theta^k$, the update reduces to \emph{proximal gradient descent}, where the reference point is updated as fast as the iterate itself.  
+	Assume we use gradient descent to solve the inner loops of proximal methods. The difference from vanilla gradient descent then lies in how the \emph{reference point} is updated. To see this, let us consider the following generic update rule:
+	\[
+		\theta^{k+1}
+		= \argmax_\theta \Bigl\{ \dd R(\theta^k)^\top (\theta - \theta^k)
+		- \beta D(\theta, \theta^{\mathrm{ref},k}) \Bigr\},
+	\]
+	where $\theta^{\mathrm{ref},k}$ is the reference point used to anchor the update at iteration $k$.
+	%
+	The choice of $\theta^{\mathrm{ref},k}$ governs the behavior of the algorithm:
+	\begin{itemize}
+		\item If $\theta^{\mathrm{ref},k} = \theta^k$, the update reduces to \emph{proximal gradient descent}, where the reference point is updated as fast as the iterate itself.
 
-\item If the reference point is updated only once every $m$ iterations, 
-i.e.\ $\theta^{\mathrm{ref},k} = \theta^{m\lfloor k/m \rfloor}$, 
-then each outer iteration corresponds to running $m$ steps of a proximal 
-gradient algorithm to approximately solve the proximal point update.
+		\item If the reference point is updated only once every $m$ iterations,
+		      i.e.\ $\theta^{\mathrm{ref},k} = \theta^{m\lfloor k/m \rfloor}$,
+		      then each outer iteration corresponds to running $m$ steps of a proximal
+		      gradient algorithm to approximately solve the proximal point update.
 
-\item If $\theta^{\mathrm{ref},k}$ evolves more slowly, for example as an exponential moving average of past iterates, the algorithm takes more conservative steps, effectively stabilizing the optimization. 
+		\item If $\theta^{\mathrm{ref},k}$ evolves more slowly, for example as an exponential moving average of past iterates, the algorithm takes more conservative steps, effectively stabilizing the optimization.
 
 
-\end{itemize}
+	\end{itemize}
 
-In short, the proximal point framework interpolates between fast-updating methods like gradient descent and slower, more implicit schemes, depending on how quickly the reference point is advanced.
+	In short, the proximal point framework interpolates between fast-updating methods like gradient descent and slower, more implicit schemes, depending on how quickly the reference point is advanced.
 \end{remark}
 
 
@@ -103,43 +103,41 @@ In short, the proximal point framework interpolates between fast-updating method
 
 Applying the proximal point method and using importance sampling for reward estimation, we have
 $$
-\theta^{k+1} = \argmax_{\theta} \left\{ \E_{\mathcal D} \left[ 
-\frac{\pi^\theta(a|s)}{\pi^{\mathtt{data}}(a|s)}
-r(a,s) \right] - \beta D(\pi^\theta~||~ \pi^{\theta^{k}}) \right\} .
+	\theta^{k+1} = \argmax_{\theta} \left\{ \E_{\mathcal D} \left[
+		\frac{\pi^\theta(a|s)}{\pi^{\mathtt{data}}(a|s)}
+		r(a,s) \right] - \beta D(\pi^\theta~||~ \pi^{\theta^{k}}) \right\} .
 $$
-We discuss two key design choices: 
+We discuss two key design choices:
 
-\noindent$\bullet$ \emph{Penalty Function.}  
+\noindent$\bullet$ \emph{Penalty Function.}
 Typically, the discrepancy $D$ is taken to be the KL divergence:
 $$
-D(\pi^\theta~||~ \pi^{\theta^{k}})
-=  
-\E_{s \sim p_0}[\KL(\pi^\theta(\cdot | s)~||~ \pi^{\theta^{k}}(\cdot | s))].
+	D(\pi^\theta~||~ \pi^{\theta^{k}})
+	=
+	\E_{s \sim p_0}[\KL(\pi^\theta(\cdot | s)~||~ \pi^{\theta^{k}}(\cdot | s))].
 $$
 However, various penalty functions have been used. We review these in the sequel.
 
-\noindent$\bullet$ \emph{Clipping Function.}  
+\noindent$\bullet$ \emph{Clipping Function.}
 Perhaps the most important trick in PPO is the clip function:
-\bb 
-\theta^{k+1} = \argmax_{\theta} \left\{ \E_{\mathcal D} \left[ 
-\mathcal C(w_\theta(a,s), 
-r(a,s)) \right] - \beta D(\pi^\theta~||~ \pi^{\theta^{k}}) \right\} ,
-\ee 
-where 
+\bb
+\theta^{k+1} = \argmax_{\theta} \left\{ \E_{\mathcal D} \left[
+	\mathcal C(w_\theta(a,s),
+	r(a,s)) \right] - \beta D(\pi^\theta~||~ \pi^{\theta^{k}}) \right\} ,
+\ee
+where
 $
-w_\theta(a,s) = \frac{\pi^\theta(a|s)}{\pi^{\mathtt{data}}(a|s)},
+	w_\theta(a,s) = \frac{\pi^\theta(a|s)}{\pi^{\mathtt{data}}(a|s)},
 $
 and $\mathcal C$ is defined as
 $$
-\mathcal C(w, r) = \min(w r, ~ \mathtt{clip}(w, [1-\epsilon, 1+\epsilon]) \, r ).
+	\mathcal C(w, r) = \min(w r, ~ \mathtt{clip}(w, [1-\epsilon, 1+\epsilon]) \, r ).
 $$
 
 In the following, we discuss the implications of the design choices for the penalty and clip functions, respectively.
 
 
-
-
-\bibliographystyle{apalike} 
+\bibliographystyle{apalike}
 \bibliography{assets/bib/reference}
 \end{document}
 

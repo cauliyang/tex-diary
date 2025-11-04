@@ -3,6 +3,9 @@
 %<TAGs>: <TAGS>
 %<TOPICs>: 
 
+\makeatletter
+\def\input@path{{assets/styles/}}
+\makeatother
 \documentclass[11pt,letterpaper]{article}
 
 \newcommand{\workingDate}{\textsc{<YEAR> $|$ <MONTH_NAME> $|$ <DAY>}}
@@ -10,17 +13,17 @@
 \newcommand{\institution}{<INSTITUTION>}
 \newcommand{\diaryTitle}{<DIARY_TITLE>} 
 
-\usepackage{assets/styles/diary_base}        % Core packages and basic theorems
-\usepackage{assets/styles/diary_ctheorems}   % Enhanced colored theorem environments (optional)
-\usepackage{assets/styles/diary_commands}   % Personal shortcuts and commands
+\usepackage{diary_base}        % Core packages and basic theorems
+\usepackage{diary_ctheorems}   % Enhanced colored theorem environments (optional)
+\usepackage{diary_commands}   % Personal shortcuts and commands
 
 
 \begin{document}
-\href{run:<FILENAME>}{\Huge <MONTH_NAME> <DAY_NUMBER>} 
+\href{run:<FILENAME>}{\Huge <MONTH_NAME> <DAY_NUMBER>}
 
 \section{ }
 
 
-\bibliographystyle{apalike} 
+\bibliographystyle{apalike}
 \bibliography{assets/bib/reference}
 \end{document}
